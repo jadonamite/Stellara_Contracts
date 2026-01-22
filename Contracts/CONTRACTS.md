@@ -11,6 +11,25 @@ All contracts follow Soroban best practices and are optimized for the Testnet en
 3. **Data Storage**: Persistent state stored in contract instance storage
 4. **Error Handling**: Using Symbol-based error codes for gas efficiency
 5. **Fee Handling**: Standardized fee collection via `FeeManager`
+6. **Cross-Contract Safety**: Atomic multi-contract operations via `safe_call`
+
+## Cross-Contract Call Safety
+
+The system implements a `CrossCall` module (`shared/src/safe_call.rs`) to ensure atomicity and proper error propagation when contracts call each other.
+
+### Guarantees
+1.  **Atomicity**: If a downstream contract call fails (panics or returns error), the upstream contract catches the error and propagates it, causing the entire transaction (including any prior state changes like fee payments) to roll back.
+2.  **Defensive Checks**: The `safe_invoke` wrapper abstracts `env.try_invoke_contract`, ensuring that all cross-contract calls are handled safely.
+
+### Usage
+Use `shared::safe_call::safe_invoke` instead of raw `env.invoke_contract` when you need to handle potential failures gracefully or ensure explicit error codes are returned.
+
+```rust
+match safe_invoke(&env, &contract_id, &func_name, args) {
+    Ok(val) => { /* success */ },
+    Err(code) => { /* handle error or propagate */ }
+}
+```
 
 ## Fee Handling
 

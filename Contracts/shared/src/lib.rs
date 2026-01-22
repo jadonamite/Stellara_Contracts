@@ -11,6 +11,7 @@ pub struct ContractConfig {
 }
 
 pub mod fees;
+pub mod safe_call;
 
 /// Standard contract error codes
 pub mod errors {
