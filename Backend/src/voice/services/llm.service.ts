@@ -1,102 +1,188 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
-import * as crypto from 'crypto';
+import { QuotaService, QuotaConfig, QuotaStatus } from './quota.service';
+import { LlmCacheService } from './llm-cache.service';
+
+export interface LlmResponseOptions {
+  model?: string;
+  useCache?: boolean;
+  recordQuota?: boolean;
+  cacheTtl?: number;
+}
+
+export interface LlmResponse {
+  content: string;
+  cached: boolean;
+  quotaStatus?: QuotaStatus;
+  model: string;
+}
 
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
-  
-  // Constants for quotas and rate limiting
-  private readonly MONTHLY_QUOTA = 1000; // requests per month
-  private readonly RPM_LIMIT = 20; // requests per minute
-  private readonly CACHE_TTL = 3600 * 24; // 24 hours in seconds
-  private readonly CACHE_VERSION = 'v1';
-  private readonly FALLBACK_MESSAGE = "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.";
 
-  constructor(private readonly redisService: RedisService) {}
+  private readonly FALLBACK_MESSAGE = "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.";
+  private readonly DEFAULT_MODEL = 'gpt-3.5-turbo';
+
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly quotaService: QuotaService,
+    private readonly cacheService: LlmCacheService,
+  ) {}
 
   /**
    * Generates a response from the LLM with quota, rate limiting, and caching.
+   * @param userId - User identifier for quota tracking
+   * @param sessionId - Session identifier for per-session quota
+   * @param prompt - The prompt to send to the LLM
+   * @param options - Configuration options for the request
    */
-  async generateResponse(userId: string, prompt: string, model: string = 'gpt-3.5-turbo'): Promise<{ content: string; cached: boolean }> {
-    try {
-      // 1. Enforce Safeguards
-      await this.checkQuotasAndRateLimits(userId);
+  async generateResponse(
+    userId: string,
+    sessionId: string,
+    prompt: string,
+    options: LlmResponseOptions = {},
+  ): Promise<LlmResponse> {
+    const model = options.model || this.DEFAULT_MODEL;
+    const useCache = options.useCache !== false; // Default true
+    const recordQuota = options.recordQuota !== false; // Default true
+    const cacheTtl = options.cacheTtl;
 
-      // 2. Response Caching
-      const cacheKey = this.generateCacheKey(prompt, model);
-      const cachedResponse = await this.redisService.client.get(cacheKey);
-      
-      if (cachedResponse) {
-        this.logger.log(`Cache hit for prompt hash: ${cacheKey.split(':').pop()}`);
-        return { content: cachedResponse, cached: true };
+    try {
+      // 1. Check quotas and rate limits
+      const quotaStatus = await this.quotaService.enforceQuota(userId, sessionId);
+
+      // 2. Try cache first
+      if (useCache) {
+        const cachedResponse = await this.cacheService.get(prompt, model);
+        if (cachedResponse) {
+          this.logger.log(`Cache hit for prompt (${model})`);
+          return {
+            content: cachedResponse,
+            cached: true,
+            quotaStatus,
+            model,
+          };
+        }
       }
 
-      // 3. Call LLM (Mocked for now, but wrapped in fallback logic)
+      // 3. Call LLM with fallback
       const response = await this.callLlmWithFallback(prompt);
 
-      // 4. Store in Cache
-      await this.redisService.client.set(cacheKey, response, {
-        EX: this.CACHE_TTL
-      });
+      // 4. Cache the response
+      if (useCache) {
+        await this.cacheService.set(prompt, response, model, cacheTtl);
+      }
 
-      return { content: response, cached: false };
+      // 5. Record quota usage
+      if (recordQuota) {
+        await this.quotaService.recordRequest(userId, sessionId);
+      }
+
+      return {
+        content: response,
+        cached: false,
+        quotaStatus,
+        model,
+      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
       }
       this.logger.error(`Unexpected error in LLM pipeline: ${error.message}`, error.stack);
-      return { content: this.FALLBACK_MESSAGE, cached: false };
+      throw new HttpException('LLM service error', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   /**
-   * Checks monthly quotas and per-minute rate limits.
+   * Generates a response with fallback behavior if LLM is unavailable
+   * @param userId - User identifier for quota tracking
+   * @param sessionId - Session identifier for per-session quota
+   * @param prompt - The prompt to send to the LLM
+   * @param options - Configuration options for the request
    */
-  private async checkQuotasAndRateLimits(userId: string): Promise<void> {
-    const now = new Date();
-    const monthKey = `quota:${userId}:${now.getUTCFullYear()}-${now.getUTCMonth() + 1}`;
-    const rpmKey = `ratelimit:${userId}:${Math.floor(now.getTime() / 60000)}`;
-
-    // Atomic increment for monthly quota
-    const monthlyCount = await this.redisService.client.incr(monthKey);
-    if (monthlyCount === 1) {
-      // Set TTL to end of month
-      const nextMonth = new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
-      const ttlSeconds = Math.floor((nextMonth.getTime() - now.getTime()) / 1000);
-      await this.redisService.client.expire(monthKey, ttlSeconds);
-    }
-
-    if (monthlyCount > this.MONTHLY_QUOTA) {
-      this.logger.warn(`User ${userId} exceeded monthly quota: ${monthlyCount}/${this.MONTHLY_QUOTA}`);
-      throw new HttpException(
-        'Monthly usage quota exceeded. Please contact support.',
-        HttpStatus.TOO_MANY_REQUESTS
+  async generateResponseWithFallback(
+    userId: string,
+    sessionId: string,
+    prompt: string,
+    options: LlmResponseOptions = {},
+  ): Promise<LlmResponse> {
+    try {
+      return await this.generateResponse(userId, sessionId, prompt, options);
+    } catch (error) {
+      // Return fallback response instead of throwing
+      this.logger.warn(
+        `LLM request failed, returning fallback for user ${userId}: ${error.message}`,
       );
-    }
 
-    // Atomic increment for RPM (Fixed window strategy)
-    const rpmCount = await this.redisService.client.incr(rpmKey);
-    if (rpmCount === 1) {
-      await this.redisService.client.expire(rpmKey, 60);
-    }
-
-    if (rpmCount > this.RPM_LIMIT) {
-      this.logger.warn(`User ${userId} exceeded rate limit: ${rpmCount}/${this.RPM_LIMIT} RPM`);
-      throw new HttpException(
-        'Too many requests. Please slow down.',
-        HttpStatus.TOO_MANY_REQUESTS
-      );
+      try {
+        const quotaStatus = await this.quotaService.getQuotaStatus(
+          userId,
+          sessionId,
+        );
+        return {
+          content: this.FALLBACK_MESSAGE,
+          cached: false,
+          quotaStatus,
+          model: options.model || this.DEFAULT_MODEL,
+        };
+      } catch {
+        // If even getting quota status fails, return minimal response
+        return {
+          content: this.FALLBACK_MESSAGE,
+          cached: false,
+          model: options.model || this.DEFAULT_MODEL,
+        };
+      }
     }
   }
 
   /**
-   * Generates a deterministic cache key.
+   * Gets current quota status for a user
    */
-  private generateCacheKey(prompt: string, model: string): string {
-    const normalizedPrompt = prompt.trim().toLowerCase();
-    const hash = crypto.createHash('sha256').update(normalizedPrompt).digest('hex');
-    return `llm:cache:${this.CACHE_VERSION}:${model}:${hash}`;
+  async getQuotaStatus(
+    userId: string,
+    sessionId: string,
+    quotaConfig?: Partial<QuotaConfig>,
+  ): Promise<QuotaStatus> {
+    return this.quotaService.getQuotaStatus(userId, sessionId, new Date(), quotaConfig);
+  }
+
+  /**
+   * Gets cache statistics
+   */
+  async getCacheStats() {
+    return this.cacheService.getStats();
+  }
+
+  /**
+   * Invalidates cache for a specific prompt
+   */
+  async invalidateCache(prompt: string, model?: string): Promise<number> {
+    return this.cacheService.invalidate(prompt, model);
+  }
+
+  /**
+   * Invalidates all LLM cache
+   */
+  async invalidateAllCache(): Promise<number> {
+    return this.cacheService.invalidateAll();
+  }
+
+  /**
+   * Resets user quota (admin function)
+   */
+  async resetUserQuota(userId: string): Promise<void> {
+    return this.quotaService.resetUserQuota(userId);
+  }
+
+  /**
+   * Warms cache with common prompts
+   */
+  async warmCache(
+    entries: Array<{ prompt: string; response: string; model: string; ttl?: number }>,
+  ): Promise<number> {
+    return this.cacheService.warmCache(entries);
   }
 
   /**

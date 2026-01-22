@@ -5,6 +5,8 @@ import { ConversationStateMachineService } from './services/conversation-state-m
 import { StreamingResponseService } from './services/streaming-response.service';
 import { SessionCleanupService } from './services/session-cleanup.service';
 import { LlmService } from './services/llm.service';
+import { QuotaService } from './services/quota.service';
+import { LlmCacheService } from './services/llm-cache.service';
 import { RedisModule } from '../redis/redis.module';
 
 @Module({
@@ -16,12 +18,16 @@ import { RedisModule } from '../redis/redis.module';
     StreamingResponseService,
     SessionCleanupService,
     LlmService,
+    QuotaService,
+    LlmCacheService,
   ],
   exports: [
     VoiceSessionService,
     ConversationStateMachineService,
     StreamingResponseService,
     LlmService,
+    QuotaService,
+    LlmCacheService,
   ],
 })
 export class VoiceModule {}
