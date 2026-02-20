@@ -4,6 +4,8 @@ import { RefreshToken } from './refresh-token.entity';
 import { ApiToken } from './api-token.entity';
 import { Consent } from '../../gdpr/entities/consent.entity';
 import { Tenant } from '../../tenancy/entities/tenant.entity';
+import { UserPermission } from './user-permission.entity';
+import { Role } from '../roles.enum';
 
 @Entity('users')
 export class User {
@@ -42,4 +44,10 @@ export class User {
 
   @Column({ nullable: true })
   tenantId: string | null;
+
+  @Column({ type: 'enum', enum: Role, default: Role.USER })
+  role: Role;
+
+  @OneToMany(() => UserPermission, (userPermission) => userPermission.user)
+  userPermissions: UserPermission[];
 }
