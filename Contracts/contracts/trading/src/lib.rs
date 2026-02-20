@@ -1,12 +1,11 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol, symbol_short};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol, symbol_short, Vec};
 use shared::fees::{FeeManager, FeeError};
 use shared::governance::{
     GovernanceManager, GovernanceRole, UpgradeProposal,
 };
-use shared::events::{
-    EventEmitter, TradeExecutedEvent, ContractPausedEvent, ContractUnpausedEvent, FeeCollectedEvent,
-};
+use shared::oracle::{OracleAggregate, fetch_aggregate_price};
+use shared::events::{EventEmitter, TradeExecutedEvent, FeeCollectedEvent};
 
 /// Version of this contract implementation
 const CONTRACT_VERSION: u32 = 1;
@@ -70,6 +69,24 @@ pub struct TradeStats {
     pub last_trade_id: u64,
 }
 
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct OracleConfig {
+    pub oracles: Vec<Address>,
+    pub max_staleness: u64,
+    pub min_sources: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct OracleStatus {
+    pub last_pair: Symbol,
+    pub last_price: i128,
+    pub last_updated_at: u64,
+    pub last_source_count: u32,
+    pub consecutive_failures: u32,
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum TradeError {
@@ -79,6 +96,7 @@ pub enum TradeError {
     NotInitialized = 3004,
     BatchSizeExceeded = 3005,
     BatchOperationFailed = 3006,
+    OracleFailure = 3007,
 }
 
 impl From<TradeError> for soroban_sdk::Error {
@@ -159,6 +177,41 @@ impl UpgradeableTradingContract {
         Ok(())
     }
 
+    pub fn set_oracle_config(
+        env: Env,
+        admin: Address,
+        oracles: Vec<Address>,
+        max_staleness: u64,
+        min_sources: u32,
+    ) -> Result<(), TradeError> {
+        admin.require_auth();
+
+        let roles_key = symbol_short!("roles");
+        let roles: soroban_sdk::Map<Address, GovernanceRole> = env
+            .storage()
+            .persistent()
+            .get(&roles_key)
+            .ok_or(TradeError::Unauthorized)?;
+
+        let role = roles
+            .get(admin)
+            .ok_or(TradeError::Unauthorized)?;
+
+        if role != GovernanceRole::Admin {
+            return Err(TradeError::Unauthorized);
+        }
+
+        let config = OracleConfig {
+            oracles,
+            max_staleness,
+            min_sources,
+        };
+        let config_key = symbol_short!("orc_cfg");
+        env.storage().persistent().set(&config_key, &config);
+
+        Ok(())
+    }
+
     /// Execute a trade with fee collection
     pub fn trade(
         env: Env,
@@ -188,17 +241,6 @@ impl UpgradeableTradingContract {
         // Collect fee first
         FeeManager::collect_fee(&env, &fee_token, &trader, &fee_recipient, fee_amount)?;
 
-        // Emit fee collected event
-        if fee_amount > 0 {
-            EventEmitter::fee_collected(&env, FeeCollectedEvent {
-                payer: trader.clone(),
-                recipient: fee_recipient,
-                amount: fee_amount,
-                token: fee_token.clone(),
-                timestamp: env.ledger().timestamp(),
-            });
-        }
-
         // Create trade record
         let stats_key = symbol_short!("stats");
         let mut stats: TradeStats = env
@@ -212,14 +254,13 @@ impl UpgradeableTradingContract {
             });
 
         let trade_id = stats.last_trade_id + 1;
-        let timestamp = env.ledger().timestamp();
         let trade = Trade {
             id: trade_id,
-            trader: trader.clone(),
-            pair: pair.clone(),
+            trader,
+            pair,
             amount,
             price,
-            timestamp,
+            timestamp: env.ledger().timestamp(),
             is_buy,
         };
 
@@ -241,19 +282,6 @@ impl UpgradeableTradingContract {
         // Update persistent storage
         env.storage().persistent().set(&trades_key, &trades);
         env.storage().persistent().set(&stats_key, &stats);
-
-        // Emit trade executed event
-        EventEmitter::trade_executed(&env, TradeExecutedEvent {
-            trade_id,
-            trader,
-            pair,
-            amount,
-            price,
-            is_buy,
-            fee_amount,
-            fee_token,
-            timestamp,
-        });
 
         Ok(trade_id)
     }
@@ -362,6 +390,15 @@ impl UpgradeableTradingContract {
             request.fee_amount,
         )?;
 
+        // Emit fee collected event
+        EventEmitter::fee_collected(env, FeeCollectedEvent {
+            payer: request.trader.clone(),
+            recipient: request.fee_recipient.clone(),
+            amount: request.fee_amount,
+            token: request.fee_token.clone(),
+            timestamp: env.ledger().timestamp(),
+        });
+
         // Create trade record
         let trade_id = stats.last_trade_id + 1;
         let timestamp = env.ledger().timestamp();
@@ -429,6 +466,84 @@ impl UpgradeableTradingContract {
             })
     }
 
+    pub fn refresh_oracle_price(env: Env, pair: Symbol) -> Result<OracleAggregate, TradeError> {
+        let config_key = symbol_short!("orc_cfg");
+        let config: OracleConfig = env
+            .storage()
+            .persistent()
+            .get(&config_key)
+            .ok_or(TradeError::NotInitialized)?;
+
+        let aggregate =
+            fetch_aggregate_price(&env, &config.oracles, &pair, config.max_staleness, config.min_sources)
+                .map_err(|_| TradeError::OracleFailure)?;
+
+        let status_key = symbol_short!("orc_sts");
+        let mut status: OracleStatus = env
+            .storage()
+            .persistent()
+            .get(&status_key)
+            .unwrap_or(OracleStatus {
+                last_pair: pair.clone(),
+                last_price: 0,
+                last_updated_at: 0,
+                last_source_count: 0,
+                consecutive_failures: 0,
+            });
+
+        status.last_pair = aggregate.pair.clone();
+        status.last_price = aggregate.median_price;
+        status.last_updated_at = env.ledger().timestamp();
+        status.last_source_count = aggregate.source_count;
+        status.consecutive_failures = 0;
+
+        env.storage().persistent().set(&status_key, &status);
+
+        env.events().publish(
+            (symbol_short!("orc_upd"),),
+            (aggregate.pair.clone(), aggregate.median_price, aggregate.source_count),
+        );
+
+        Ok(aggregate)
+    }
+
+    pub fn record_oracle_failure(env: Env, pair: Symbol) {
+        let status_key = symbol_short!("orc_sts");
+        let mut status: OracleStatus = env
+            .storage()
+            .persistent()
+            .get(&status_key)
+            .unwrap_or(OracleStatus {
+                last_pair: pair,
+                last_price: 0,
+                last_updated_at: 0,
+                last_source_count: 0,
+                consecutive_failures: 0,
+            });
+
+        status.consecutive_failures += 1;
+        env.storage().persistent().set(&status_key, &status);
+
+        env.events().publish(
+            (symbol_short!("orc_fail"),),
+            status.consecutive_failures,
+        );
+    }
+
+    pub fn get_oracle_status(env: Env) -> OracleStatus {
+        let status_key = symbol_short!("orc_sts");
+        env.storage()
+            .persistent()
+            .get(&status_key)
+            .unwrap_or(OracleStatus {
+                last_pair: Symbol::new(&env, "NONE"),
+                last_price: 0,
+                last_updated_at: 0,
+                last_source_count: 0,
+                consecutive_failures: 0,
+            })
+    }
+
     /// Pause the contract (admin only)
     pub fn pause(env: Env, admin: Address) -> Result<(), TradeError> {
         admin.require_auth();
@@ -442,7 +557,7 @@ impl UpgradeableTradingContract {
             .ok_or(TradeError::Unauthorized)?;
 
         let role = roles
-            .get(admin.clone())
+            .get(admin)
             .ok_or(TradeError::Unauthorized)?;
 
         if role != GovernanceRole::Admin {
@@ -451,12 +566,6 @@ impl UpgradeableTradingContract {
 
         let paused_key = symbol_short!("pause");
         env.storage().persistent().set(&paused_key, &true);
-
-        // Emit contract paused event
-        EventEmitter::contract_paused(&env, ContractPausedEvent {
-            paused_by: admin,
-            timestamp: env.ledger().timestamp(),
-        });
 
         Ok(())
     }
@@ -473,7 +582,7 @@ impl UpgradeableTradingContract {
             .ok_or(TradeError::Unauthorized)?;
 
         let role = roles
-            .get(admin.clone())
+            .get(admin)
             .ok_or(TradeError::Unauthorized)?;
 
         if role != GovernanceRole::Admin {
@@ -482,12 +591,6 @@ impl UpgradeableTradingContract {
 
         let paused_key = symbol_short!("pause");
         env.storage().persistent().set(&paused_key, &false);
-
-        // Emit contract unpaused event
-        EventEmitter::contract_unpaused(&env, ContractUnpausedEvent {
-            unpaused_by: admin,
-            timestamp: env.ledger().timestamp(),
-        });
 
         Ok(())
     }

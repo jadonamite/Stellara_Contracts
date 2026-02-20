@@ -56,7 +56,7 @@ pub struct BatchRewardClaimResult {
 
 /// Batch reward operation result
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BatchRewardOperation {
     pub successful_rewards: soroban_sdk::Vec<u64>,
     pub failed_rewards: soroban_sdk::Vec<BatchRewardResult>,
