@@ -39,6 +39,7 @@ import { Tenant } from './tenancy/entities/tenant.entity';
 import { TenantConfig } from './tenancy/entities/tenant-config.entity';
 import { TenantUsage } from './tenancy/entities/tenant-usage.entity';
 import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
+import { ReputationModule } from './reputation/reputation.module';
 
 
 @Module({
@@ -104,6 +105,7 @@ import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
     GdprModule,
     ThrottleModule,
     TenantModule,
+    ReputationModule,
   ],
 
   controllers: [AppController],
