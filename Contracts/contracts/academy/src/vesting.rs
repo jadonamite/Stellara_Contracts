@@ -678,3 +678,51 @@ impl AcademyVestingContract {
 
 #[cfg(test)]
 mod tests;
+/// Performance-based unlock trigger
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PerformanceTrigger {
+    pub trigger_id: u32,
+    pub unlock_bps: u32,          // basis points, e.g. 1000 = 10%
+    pub condition_type: ConditionType,
+    pub threshold: i128,
+    pub is_met: bool,
+    pub met_at: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConditionType {
+    CourseCompletions,            // Natural fit for academy
+    MinStakeAmount,
+    GovernanceParticipations,
+    CustomOracle,
+}
+
+/// Extended vesting schedule (v2) with performance triggers
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VestingScheduleV2 {
+    pub base: VestingSchedule,                        // reuse existing
+    pub performance_triggers: soroban_sdk::Vec<PerformanceTrigger>,
+    pub transfer_restricted: bool,
+    pub schedule_version: u32,                        // 2 for new schedules
+}
+
+/// Schedule modification proposal (must go through governance)
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ScheduleModification {
+    pub grant_id: u64,
+    pub new_cliff: Option<u64>,
+    pub new_duration: Option<u64>,
+    pub proposed_by: Address,
+    pub proposal_id: u64,
+}
+
+/// New error codes — add to VestingError enum
+// TransferRestricted = 4012,
+// TriggerNotFound    = 4013,
+// TriggerAlreadyMet  = 4014,
+// NotGovernance      = 4015,
+// InvalidBps         = 4016,
