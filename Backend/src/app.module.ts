@@ -39,6 +39,9 @@ import { Tenant } from './tenancy/entities/tenant.entity';
 import { TenantConfig } from './tenancy/entities/tenant-config.entity';
 import { TenantUsage } from './tenancy/entities/tenant-usage.entity';
 import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { AnalyticsMetric } from './analytics/entities/analytics-metric.entity';
+import { AnalyticsAlert } from './analytics/entities/analytics-alert.entity';
 
 
 @Module({
@@ -76,6 +79,9 @@ import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
             TenantConfig,
             TenantUsage,
             TenantInvitation,
+            // Analytics entities
+            AnalyticsMetric,
+            AnalyticsAlert,
           ],
         };
 
@@ -104,6 +110,7 @@ import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
     GdprModule,
     ThrottleModule,
     TenantModule,
+    AnalyticsModule,
   ],
 
   controllers: [AppController],
