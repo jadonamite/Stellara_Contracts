@@ -19,7 +19,7 @@ describe('ErrorTrackingService', () => {
 
     jest.spyOn(logger, 'error').mockImplementation(() => {});
     jest.spyOn(logger, 'warn').mockImplementation(() => {});
-    jest.spyOn(metrics, 'incrementError').mockImplementation(() => {} as any);
+    jest.spyOn(metrics, 'incrementError').mockImplementation(() => {});
   });
 
   it('should track an error and increment metrics', async () => {

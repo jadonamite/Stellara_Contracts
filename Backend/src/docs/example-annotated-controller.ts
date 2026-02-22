@@ -101,7 +101,7 @@ export class ExampleAuthController {
 
   @Get('profile')
   @ApiDocumented({                       
-    summary: 'Get the authenticated user's profile',
+    summary: 'Get the authenticated user\'s profile',
     requiresAuth: true,
   })
   @ApiOkResponse({ type: UserProfileDto })
