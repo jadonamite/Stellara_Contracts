@@ -2,7 +2,6 @@ import { Module, Logger } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -10,9 +9,6 @@ import { AppService } from './app.service';
 // logging and error handling
 import { LoggingModule } from './logging/logging.module';
 import { StructuredLogger } from './logging/structured-logger.service';
-
-// Configuration management
-import { ConfigurationModule } from './config/configuration.module';
 
 import { RedisModule } from './redis/redis.module';
 import { VoiceModule } from './voice/voice.module';
@@ -43,6 +39,9 @@ import { Tenant } from './tenancy/entities/tenant.entity';
 import { TenantConfig } from './tenancy/entities/tenant-config.entity';
 import { TenantUsage } from './tenancy/entities/tenant-usage.entity';
 import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { AnalyticsMetric } from './analytics/entities/analytics-metric.entity';
+import { AnalyticsAlert } from './analytics/entities/analytics-alert.entity';
 
 
 @Module({
@@ -50,16 +49,9 @@ import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
     // logging comes first so correlation middleware wraps every request
     LoggingModule,
 
-    // Event emitter for configuration change events
-    EventEmitterModule.forRoot(),
-
-    // Global configuration
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-
-    // Centralized configuration management
-    ConfigurationModule.forRoot(),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -87,6 +79,9 @@ import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
             TenantConfig,
             TenantUsage,
             TenantInvitation,
+            // Analytics entities
+            AnalyticsMetric,
+            AnalyticsAlert,
           ],
         };
 
@@ -115,6 +110,7 @@ import { TenantInvitation } from './tenancy/entities/tenant-invitation.entity';
     GdprModule,
     ThrottleModule,
     TenantModule,
+    AnalyticsModule,
   ],
 
   controllers: [AppController],

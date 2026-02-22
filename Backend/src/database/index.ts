@@ -4,7 +4,7 @@
  */
 
 // Migration Strategy & Core
-export type {
+export {
   MigrationContext,
   MigrationValidationRule,
   BackupStrategy,
@@ -19,7 +19,7 @@ export type {
 export { MigrationExecutor } from './migration-executor';
 
 // Migration Testing
-export type {
+export {
   MigrationTestResult,
   MigrationTestingService,
 } from './migration-testing.service';

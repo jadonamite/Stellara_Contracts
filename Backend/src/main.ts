@@ -4,6 +4,25 @@ import { RedisIoAdapter } from './websocket/redis-io.adapter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { ThrottleGuard } from './throttle/throttle.guard';
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+
+// Initialize OpenTelemetry SDK
+const traceExporter = new OTLPTraceExporter({
+  url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318/v1/traces',
+});
+
+const sdk = new NodeSDK({
+  traceExporter,
+  instrumentations: [getNodeAutoInstrumentations()],
+});
+
+sdk.start().then(() => {
+  console.log('OpenTelemetry initialized');
+}).catch((error) => {
+  console.error('Error initializing OpenTelemetry', error);
+});
 import { StructuredLogger } from './logging/structured-logger.service';
 import { AllExceptionsFilter } from './logging/all-exceptions.filter';
 import { MetricsService } from './logging/metrics.service';
@@ -17,14 +36,22 @@ async function bootstrap() {
 
   // monkey‑patch Nest's Logger prototype so `new Logger()` instances
   // also use the structured logger logic and include correlation IDs.
-  const nestProto: any = (require('@nestjs/common').Logger as any).prototype;
-  ['log', 'error', 'warn', 'debug', 'verbose'].forEach(method => {
+  const nestProto: any = require('@nestjs/common').Logger.prototype;
+  ['log', 'error', 'warn', 'debug', 'verbose'].forEach((method) => {
     const orig = nestProto[method];
     nestProto[method] = function (message: any, ...args: any[]) {
       // delegate to our global structured logger
       (logger as any)[method](message, ...args);
     };
   });
+
+  // Ensure OpenTelemetry shutdown on app termination
+  const shutdown = async () => {
+    await sdk.shutdown();
+    console.log('OpenTelemetry shut down');
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 
   // Enable validation globally
   app.useGlobalPipes(
@@ -38,7 +65,9 @@ async function bootstrap() {
   // Configure Swagger
   const config = new DocumentBuilder()
     .setTitle('Stellara API')
-    .setDescription('API for authentication, monitoring Stellar network events, and delivering webhooks')
+    .setDescription(
+      'API for authentication, monitoring Stellar network events, and delivering webhooks',
+    )
     .setVersion('1.0')
     .addTag('Authentication')
     .addTag('Stellar Monitor')

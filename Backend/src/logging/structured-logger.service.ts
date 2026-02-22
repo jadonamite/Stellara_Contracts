@@ -31,7 +31,7 @@ export class StructuredLogger extends Logger implements LoggerService {
 
     const formats = [
       winston.format.timestamp(),
-      winston.format.printf(info => {
+      winston.format.printf((info) => {
         const correlationId = RequestContext.get('correlationId');
         const base: any = {
           timestamp: info.timestamp,
@@ -39,7 +39,7 @@ export class StructuredLogger extends Logger implements LoggerService {
           message: info.message,
           correlationId,
           context: info.context || this.context,
-          ...(info.meta || {}),
+          ...((info.meta && typeof info.meta === 'object') ? info.meta : {}),
         };
         return JSON.stringify(base);
       }),
