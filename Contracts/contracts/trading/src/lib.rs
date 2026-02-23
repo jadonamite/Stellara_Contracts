@@ -80,6 +80,7 @@ pub enum TradeError {
     BatchSizeExceeded = 3005,
     BatchOperationFailed = 3006,
     OracleFailure = 3007,
+    StatsOverflow = 3008,
 }
 
 impl From<TradeError> for soroban_sdk::Error {
@@ -271,8 +272,12 @@ impl UpgradeableTradingContract {
             ) {
                 Ok(trade_id) => {
                     successful_trades.push_back(trade_id);
-                    total_fees_collected += request.fee_amount;
-                    total_gas_saved += 1000i128; // Estimated gas savings per trade
+                    total_fees_collected = total_fees_collected
+                        .checked_add(request.fee_amount)
+                        .ok_or(TradeError::StatsOverflow)?;
+                    total_gas_saved = total_gas_saved
+                        .checked_add(1000i128)
+                        .ok_or(TradeError::StatsOverflow)?;
                     BatchTradeResult {
                         trade_id: Some(trade_id),
                         success: true,
@@ -331,7 +336,10 @@ impl UpgradeableTradingContract {
         });
 
         // Create trade record with optimized storage
-        let trade_id = stats.last_trade_id + 1;
+        let trade_id = stats
+            .last_trade_id
+            .checked_add(1)
+            .ok_or(TradeError::StatsOverflow)?;
         let timestamp = env.ledger().timestamp();
         let trade = OptimizedTrade {
             id: trade_id,
@@ -344,8 +352,14 @@ impl UpgradeableTradingContract {
         };
 
         // Update stats
-        stats.total_trades += 1;
-        stats.total_volume += request.amount;
+        stats.total_trades = stats
+            .total_trades
+            .checked_add(1)
+            .ok_or(TradeError::StatsOverflow)?;
+        stats.total_volume = stats
+            .total_volume
+            .checked_add(request.amount)
+            .ok_or(TradeError::StatsOverflow)?;
         stats.last_trade_id = trade_id;
 
         // Store trade with optimized individual key

@@ -44,10 +44,23 @@ formal-verification/
 6. **`clawback`** - Admin fund recovery
 7. **`set_authorized`** - Authorization control
 
+### Trading Contract (`contracts/trading`) — formally verified
+1. **`trade`** - Single trade execution with fee collection
+2. **`batch_trade`** - Batch trade execution
+3. **`process_single_trade`** - Per-request processing and stats update
+4. **Storage** - `increment_trade_stats` (overflow-safe)
+
+**Trading verification crate**: `verification/` (Kani proof harnesses for overflow, state invariants, fund safety). Run from repo root:
+```bash
+cd formal-verification/verification && cargo kani
+```
+
 ### Key Properties to Verify
 - **Conservation of tokens** - Total supply invariants
 - **Authorization enforcement** - Access control correctness
-- **Overflow/underflow prevention** - Arithmetic safety
+- **Overflow/underflow prevention** - Arithmetic safety (trading: `total_volume`, `last_trade_id`, `total_fees_collected`)
+- **State invariants** - Trading: `total_trades == last_trade_id`, `total_volume` consistency
+- **Fund safety** - Trading: fees non-negative, no double-spend, fee aggregation overflow-safe
 - **Reentrancy protection** - State consistency
 - **Allowance correctness** - Delegation integrity
 
@@ -99,10 +112,10 @@ Verification is integrated into the CI pipeline via:
 
 - [x] Directory structure created
 - [x] Tool installation documented
-- [ ] Formal specifications written
-- [ ] Proof harnesses implemented
+- [x] Formal specifications written (token + **trading**)
+- [x] Proof harnesses implemented (token + **trading** in `verification/`)
 - [ ] CI integration configured
-- [ ] Verification reports generated
+- [x] Verification reports generated (run script + `reports/`)
 
 ## 📚 Next Steps
 

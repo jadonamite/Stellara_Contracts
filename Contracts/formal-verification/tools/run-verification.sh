@@ -17,30 +17,38 @@ NC='\033[0m' # No Color
 
 # Configuration
 CONTRACTS_DIR="../contracts"
-VERIFICATION_DIR="."
-TOOLS_DIR="$VERIFICATION_DIR/tools"
+VERIFICATION_DIR=".."
+TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROOFS_DIR="$VERIFICATION_DIR/proofs"
 REPORTS_DIR="$VERIFICATION_DIR/reports"
+TRADING_VERIFICATION_MANIFEST="$VERIFICATION_DIR/verification/Cargo.toml"
 
 # Create reports directory if it doesn't exist
 mkdir -p "$REPORTS_DIR"
 
-# Function to run a single proof
-run_proof() {
+# Function to run a single proof with a Cargo manifest path (path to Cargo.toml)
+run_proof_with_manifest() {
     local proof_name=$1
-    local proof_file=$2
-    local timeout=$3
+    local manifest_path=$2
+    local timeout=${3:-60}
     
     echo -e "${BLUE}Running proof: $proof_name${NC}"
     
-    # Run Kani with timeout
-    if timeout "$timeout"s cargo kani --proof-name "$proof_name" --manifest-path "$proof_file" 2>&1 | tee "$REPORTS_DIR/${proof_name}.log"; then
+    if timeout "$timeout"s cargo kani --proof-name "$proof_name" --manifest-path "$manifest_path" 2>&1 | tee "$REPORTS_DIR/${proof_name}.log"; then
         echo -e "${GREEN}✓ Proof $proof_name: PASSED${NC}"
         return 0
     else
         echo -e "${RED}✗ Proof $proof_name: FAILED${NC}"
         return 1
     fi
+}
+
+# Legacy: run proof (token proofs use proof file path; prefer run_proof_with_manifest for crates)
+run_proof() {
+    local proof_name=$1
+    local proof_file=$2
+    local timeout=$3
+    run_proof_with_manifest "$proof_name" "$proof_file" "$timeout"
 }
 
 # Function to run all proofs
@@ -114,6 +122,32 @@ run_all_proofs() {
         passed_proofs+=("total_supply_conservation")
     else
         failed_proofs+=("total_supply_conservation")
+    fi
+    
+    # ========== Trading contract verification (formal-verification/verification crate) ==========
+    echo -e "${BLUE}Testing trading execution and fund safety...${NC}"
+    if [ -f "$TRADING_VERIFICATION_MANIFEST" ]; then
+        TRADING_PROOFS=(
+            "trade_stats_volume_no_overflow"
+            "trade_stats_volume_overflow_returns_none"
+            "trade_stats_trade_id_overflow_returns_none"
+            "state_invariant_trades_eq_last_id"
+            "fund_safety_fees_non_negative"
+            "fund_safety_fee_overflow_returns_false"
+            "amount_positive_for_valid_trade"
+            "arithmetic_safety_i128_checked"
+            "arithmetic_safety_u64_increment"
+            "state_invariant_volume_sum"
+        )
+        for proof in "${TRADING_PROOFS[@]}"; do
+            if run_proof_with_manifest "$proof" "$TRADING_VERIFICATION_MANIFEST" 90; then
+                passed_proofs+=("$proof")
+            else
+                failed_proofs+=("$proof")
+            fi
+        done
+    else
+        echo -e "${YELLOW}⚠ Trading verification crate not found at $TRADING_VERIFICATION_MANIFEST${NC}"
     fi
     
     # Generate summary report
@@ -200,22 +234,24 @@ install_tools() {
     echo -e "${GREEN}✓ All tools installed${NC}"
 }
 
-# Function to run quick verification (subset of proofs)
+# Function to run quick verification (subset of proofs: token + trading)
 run_quick_verification() {
     echo -e "${YELLOW}Running quick verification...${NC}"
     
-    local quick_proofs=(
-        "transfer_non_negative_amount"
-        "arithmetic_safety_overflow"
-        "authorization_enforcement"
-    )
-    
     local failed=0
-    for proof in "${quick_proofs[@]}"; do
-        if ! run_proof "$proof" "$PROOFS_DIR/token-proofs.rs" 30; then
-            failed=1
-        fi
-    done
+    if [ -f "$TRADING_VERIFICATION_MANIFEST" ]; then
+        local quick_trading_proofs=(
+            "trade_stats_volume_no_overflow"
+            "state_invariant_trades_eq_last_id"
+            "fund_safety_fees_non_negative"
+            "arithmetic_safety_u64_increment"
+        )
+        for proof in "${quick_trading_proofs[@]}"; do
+            if ! run_proof_with_manifest "$proof" "$TRADING_VERIFICATION_MANIFEST" 90; then
+                failed=1
+            fi
+        done
+    fi
     
     if [ $failed -eq 0 ]; then
         echo -e "${GREEN}✓ Quick verification passed${NC}"

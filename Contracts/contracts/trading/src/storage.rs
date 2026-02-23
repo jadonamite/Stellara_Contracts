@@ -162,9 +162,18 @@ impl TradingStorage {
     
     pub fn increment_trade_stats(env: &Env, amount: i128) -> u64 {
         let mut stats = Self::get_stats(env);
-        stats.last_trade_id += 1;
-        stats.total_trades += 1;
-        stats.total_volume += amount;
+        stats.last_trade_id = stats
+            .last_trade_id
+            .checked_add(1)
+            .unwrap_or_else(|| panic!("trade id overflow"));
+        stats.total_trades = stats
+            .total_trades
+            .checked_add(1)
+            .unwrap_or_else(|| panic!("total_trades overflow"));
+        stats.total_volume = stats
+            .total_volume
+            .checked_add(amount)
+            .unwrap_or_else(|| panic!("total_volume overflow"));
         Self::set_stats(env, &stats);
         stats.last_trade_id
     }
