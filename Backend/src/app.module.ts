@@ -28,6 +28,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuditLog } from './audit/audit.entity';
 import { VoiceJob } from './voice/entities/voice-job.entity';
 import { ThrottleModule } from './throttle/throttle.module';
+import { ObservabilityModule } from './observability/observability.module';
 
 
 @Module({
@@ -72,6 +73,7 @@ import { ThrottleModule } from './throttle/throttle.module';
     MarketDataModule,
     AuditModule,
     ThrottleModule,
+    ObservabilityModule,
   ],
 
   controllers: [AppController],
@@ -89,4 +91,4 @@ import { ThrottleModule } from './throttle/throttle.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -5,33 +5,51 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { ThrottleService } from './throttle.service';
-import { RATE_LIMITS } from './throttle.constants';
+import { STRATEGIES } from './throttle.constants';
+import { THROTTLE_STRATEGY_KEY } from './throttle.decorator';
 
 @Injectable()
 export class ThrottleGuard implements CanActivate {
-  constructor(private readonly throttle: ThrottleService) {}
+  constructor(
+    private readonly throttle: ThrottleService,
+    private readonly reflector: Reflector,
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
     const res = context.switchToHttp().getResponse();
 
     const ip = req.ip;
-    const userId = req.user?.id;
-    const identifier = userId ?? ip;
+    const user = req.user;
+    const identifier = user?.id ?? ip;
+    const role = user?.role ?? 'user';
 
     await this.throttle.checkBan(identifier);
 
-    const isAuthRoute = req.path.includes('/auth');
-    const config = isAuthRoute ? RATE_LIMITS.AUTH : RATE_LIMITS.GLOBAL;
+    // Get strategy from metadata or fall back to defaults
+    const strategyName = this.reflector.getAllAndOverride<string>(
+      THROTTLE_STRATEGY_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
-    const key = `rate:${req.path}:${identifier}`;
+    let strategy = STRATEGIES[strategyName];
+
+    if (!strategy) {
+      const isAuthRoute = req.path.includes('/auth');
+      strategy = isAuthRoute ? STRATEGIES.AUTH : STRATEGIES.GLOBAL;
+    }
+
+    const key = `rate:${strategyName || (req.path.includes('/auth') ? 'AUTH' : 'GLOBAL')}:${identifier}`;
 
     const { current, limit, ttl } =
       await this.throttle.checkRateLimit(
         key,
-        config.limit,
-        config.window,
+        strategy.limit,
+        strategy.window,
+        role,
+        strategyName || (req.path.includes('/auth') ? 'AUTH' : 'GLOBAL'),
       );
 
     res.setHeader('X-RateLimit-Limit', limit);
@@ -39,7 +57,10 @@ export class ThrottleGuard implements CanActivate {
     res.setHeader('X-RateLimit-Reset', ttl);
 
     if (current > limit) {
-      await this.throttle.registerViolation(identifier);
+      await this.throttle.registerViolation(
+        identifier,
+        strategyName || (req.path.includes('/auth') ? 'AUTH' : 'GLOBAL'),
+      );
       throw new HttpException('Rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
     }
 

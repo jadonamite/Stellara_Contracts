@@ -1,20 +1,44 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { BAN_RULES } from './throttle.constants';
+import { BAN_RULES, ROLE_LIMIT_MULTIPLIERS } from './throttle.constants';
 import { buildBanKey } from './throttle.util';
 import { RedisService } from '../redis/redis.service';
+import { MetricsService } from '../observability/services/metrics.service';
 
 @Injectable()
 export class ThrottleService {
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    private readonly metrics: MetricsService,
+  ) { }
 
-  async checkRateLimit(key: string, limit: number, windowSeconds: number) {
-    const current = await this.redis.client.incr(key);
+  /**
+   * Atomic rate limit check using Lua Script
+   */
+  async checkRateLimit(
+    key: string,
+    baseLimit: number,
+    windowSeconds: number,
+    role: string = 'user',
+    strategy: string = 'GLOBAL',
+  ) {
+    const multiplier = ROLE_LIMIT_MULTIPLIERS[role] || 1;
+    const limit = Math.floor(baseLimit * multiplier);
 
-    if (current === 1) {
-      await this.redis.client.expire(key, windowSeconds);
-    }
+    // Lua script to increment and set expiry in one atomic operation
+    const script = `
+      local current = redis.call('INCR', KEYS[1])
+      if current == 1 then
+        redis.call('EXPIRE', KEYS[1], ARGV[1])
+      end
+      return {current, tonumber(redis.call('TTL', KEYS[1]))}
+    `;
 
-    const ttl = await this.redis.client.ttl(key);
+    const [current, ttl] = (await this.redis.client.eval(script, {
+      keys: [key],
+      arguments: [windowSeconds.toString()],
+    })) as [number, number];
+
+    this.metrics.recordRateLimitHit(strategy, key.split(':').pop() || 'unknown');
 
     return { current, limit, ttl };
   }
@@ -26,13 +50,23 @@ export class ThrottleService {
     }
   }
 
-  async registerViolation(identifier: string) {
+  async registerViolation(identifier: string, strategy: string = 'GLOBAL') {
     const violationsKey = `violations:${identifier}`;
-    const violations = await this.redis.client.incr(violationsKey);
 
-    if (violations === 1) {
-      await this.redis.client.expire(violationsKey, 3600);
-    }
+    // Using another small script for violation tracking
+    const script = `
+      local current = redis.call('INCR', KEYS[1])
+      if current == 1 then
+        redis.call('EXPIRE', KEYS[1], '3600')
+      end
+      return current
+    `;
+
+    const violations = (await this.redis.client.eval(script, {
+      keys: [violationsKey],
+    })) as number;
+
+    this.metrics.recordRateLimitViolation(strategy, identifier);
 
     if (violations >= BAN_RULES.MAX_VIOLATIONS) {
       const banSeconds =
@@ -43,6 +77,8 @@ export class ThrottleService {
         banSeconds,
         '1',
       );
+
+      this.metrics.recordRateLimitBan(identifier);
     }
   }
 }

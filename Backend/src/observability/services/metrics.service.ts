@@ -43,6 +43,11 @@ export class MetricsService {
   private processUptime: promClient.Gauge;
   private processMemoryUsage: promClient.Gauge;
 
+  // Rate Limiting Metrics
+  private rateLimitHits: promClient.Counter;
+  private rateLimitViolations: promClient.Counter;
+  private rateLimitBans: promClient.Counter;
+
   constructor() {
     this.initializeMetrics();
     this.setupDefaultMetrics();
@@ -202,6 +207,25 @@ export class MetricsService {
       help: 'Process memory usage in bytes',
       labelNames: ['type'],
     });
+
+    // Rate Limiting Metrics
+    this.rateLimitHits = new promClient.Counter({
+      name: 'rate_limit_hits_total',
+      help: 'Total rate limit hits',
+      labelNames: ['strategy', 'identifier'],
+    });
+
+    this.rateLimitViolations = new promClient.Counter({
+      name: 'rate_limit_violations_total',
+      help: 'Total rate limit violations',
+      labelNames: ['strategy', 'identifier'],
+    });
+
+    this.rateLimitBans = new promClient.Counter({
+      name: 'rate_limit_bans_total',
+      help: 'Total rate limit bans',
+      labelNames: ['identifier'],
+    });
   }
 
   /**
@@ -338,5 +362,19 @@ export class MetricsService {
    */
   getMetricsContentType(): string {
     return promClient.register.contentType;
+  }
+
+  // Rate Limiting Methods
+
+  recordRateLimitHit(strategy: string, identifier: string) {
+    this.rateLimitHits.inc({ strategy, identifier });
+  }
+
+  recordRateLimitViolation(strategy: string, identifier: string) {
+    this.rateLimitViolations.inc({ strategy, identifier });
+  }
+
+  recordRateLimitBan(identifier: string) {
+    this.rateLimitBans.inc({ identifier });
   }
 }
