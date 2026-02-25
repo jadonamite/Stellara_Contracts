@@ -25,9 +25,7 @@ describe('StreamingResponseService', () => {
   };
 
   const mockLlmService = {
-    generateResponse: jest
-      .fn()
-      .mockResolvedValue({ content: 'Mock response', cached: false }),
+    generateResponse: jest.fn().mockResolvedValue({ content: 'Mock response', cached: false }),
   };
 
   beforeEach(async () => {
@@ -74,35 +72,20 @@ describe('StreamingResponseService', () => {
       mockVoiceSessionService.addMessage.mockResolvedValue(true);
       mockVoiceSessionService.updateSessionState.mockResolvedValue(true);
 
-      const streamId = await service.startStreamingResponse(
-        mockServer,
-        sessionId,
-        userMessage,
-      );
+      const streamId = await service.startStreamingResponse(mockServer, sessionId, userMessage);
 
       expect(streamId).toBeDefined();
-      expect(mockVoiceSessionService.addMessage).toHaveBeenCalledWith(
-        sessionId,
-        userMessage,
-        true,
-      );
-      expect(mockVoiceSessionService.updateSessionState).toHaveBeenCalledWith(
-        sessionId,
-        ConversationState.THINKING,
-      );
+      expect(mockVoiceSessionService.addMessage).toHaveBeenCalledWith(sessionId, userMessage, true);
+      expect(mockVoiceSessionService.updateSessionState).toHaveBeenCalledWith(sessionId, ConversationState.THINKING);
       expect(mockServer.to).toHaveBeenCalledWith('socket123');
-      expect(mockServer.emit).toHaveBeenCalledWith('voice:thinking', {
-        sessionId,
-        streamId,
-      });
+      expect(mockServer.emit).toHaveBeenCalledWith('voice:thinking', { sessionId, streamId });
     });
 
     it('should throw error for non-existent session', async () => {
       mockVoiceSessionService.getSession.mockResolvedValue(null);
 
-      await expect(
-        service.startStreamingResponse(mockServer, 'nonexistent', 'Hello'),
-      ).rejects.toThrow('Session nonexistent not found');
+      await expect(service.startStreamingResponse(mockServer, 'nonexistent', 'Hello'))
+        .rejects.toThrow('Session nonexistent not found');
     });
   });
 
@@ -124,16 +107,10 @@ describe('StreamingResponseService', () => {
       mockVoiceSessionService.updateSessionState.mockResolvedValue(true);
       await service.startStreamingResponse(mockServer, sessionId, 'Hello');
 
-      const success = await service.interruptStream(
-        mockServer,
-        sessionId,
-        streamId,
-      );
+      const success = await service.interruptStream(mockServer, sessionId, streamId);
 
       expect(success).toBe(true);
-      expect(mockVoiceSessionService.interruptSession).toHaveBeenCalledWith(
-        sessionId,
-      );
+      expect(mockVoiceSessionService.interruptSession).toHaveBeenCalledWith(sessionId);
       expect(mockServer.to).toHaveBeenCalledWith('socket123');
     });
 
@@ -151,19 +128,13 @@ describe('StreamingResponseService', () => {
       const success = await service.interruptStream(mockServer, sessionId);
 
       expect(success).toBe(true);
-      expect(mockVoiceSessionService.interruptSession).toHaveBeenCalledWith(
-        sessionId,
-      );
+      expect(mockVoiceSessionService.interruptSession).toHaveBeenCalledWith(sessionId);
     });
 
     it('should return false for non-existent session', async () => {
       mockVoiceSessionService.getSession.mockResolvedValue(null);
 
-      const success = await service.interruptStream(
-        mockServer,
-        'nonexistent',
-        'stream123',
-      );
+      const success = await service.interruptStream(mockServer, 'nonexistent', 'stream123');
 
       expect(success).toBe(false);
     });
@@ -188,11 +159,7 @@ describe('StreamingResponseService', () => {
       mockVoiceSessionService.updateSessionState.mockResolvedValue(true);
 
       await service.startStreamingResponse(mockServer, sessionId, 'Hello');
-      await service.startStreamingResponse(
-        mockServer,
-        sessionId,
-        'Hello again',
-      );
+      await service.startStreamingResponse(mockServer, sessionId, 'Hello again');
 
       const count = service.getActiveStreamCount();
       expect(count).toBe(2);

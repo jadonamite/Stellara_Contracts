@@ -40,9 +40,7 @@ describe('AuditService', () => {
     mockRepo.create.mockReturnValue(log);
     mockRepo.save.mockResolvedValue(log);
 
-    const result = await service.logAction('USER_CREATED', 'user1', 'entity1', {
-      key: 'value',
-    });
+    const result = await service.logAction('USER_CREATED', 'user1', 'entity1', { key: 'value' });
 
     expect(mockRepo.create).toHaveBeenCalledWith({
       action_type: 'USER_CREATED',

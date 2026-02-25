@@ -1,108 +1,102 @@
 #!/bin/bash
 set -e
 
-log() { echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')] [DEPLOY] $1"; }
+# Secure Deployment Script for Stellara Contracts
 
-# --- Config ---
-NETWORK=${STELLAR_NETWORK:-testnet}
-RPC_URL=${STELLAR_RPC_URL:-"https://soroban-testnet.stellar.org"}
-OUTPUT_FILE="deployed_contracts.env"
-DEPLOY_LOG="deploy_$(date +'%Y%m%d_%H%M%S').log"
+# Function to log messages
+log() {
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')] $1"
+}
 
-# --- Guards ---
+# Check for required environment variables
 if [ -z "$STELLAR_SECRET_KEY" ]; then
-    log "Error: STELLAR_SECRET_KEY is not set"
+    log "Error: STELLAR_SECRET_KEY is not set."
     exit 1
 fi
 
-# --- Setup ---
-log "Network: $NETWORK | RPC: $RPC_URL"
-log "Logging to $DEPLOY_LOG"
-exec > >(tee -a "$DEPLOY_LOG") 2>&1
-
-# Backup existing deployment before proceeding
-./scripts/rollback.sh backup
-
-# Configure network
-if ! stellar config network get "$NETWORK" >/dev/null 2>&1; then
-    log "Configuring network $NETWORK..."
-    stellar config network add \
-        --rpc-url "$RPC_URL" \
-        --network-passphrase "Test SDF Network ; September 2015" \
-        "$NETWORK"
+if [ -z "$STELLAR_NETWORK" ]; then
+    log "Warning: STELLAR_NETWORK is not set. Defaulting to 'testnet'."
+    STELLAR_NETWORK="testnet"
 fi
 
-# Add deployer identity
+if [ -z "$STELLAR_RPC_URL" ]; then
+    if [ "$STELLAR_NETWORK" = "testnet" ]; then
+        STELLAR_RPC_URL="https://soroban-testnet.stellar.org"
+    else
+        log "Error: STELLAR_RPC_URL is not set."
+        exit 1
+    fi
+fi
+
+log "Configuration:"
+log "  Network: $STELLAR_NETWORK"
+log "  RPC URL: $STELLAR_RPC_URL"
+log "  Secret Key: [HIDDEN]"
+
+# Configure network if not exists
+if ! stellar config network get "$STELLAR_NETWORK" >/dev/null 2>&1; then
+    log "Configuring network '$STELLAR_NETWORK'..."
+    stellar config network add \
+        --rpc-url "$STELLAR_RPC_URL" \
+        --network-passphrase "Test SDF Network ; September 2015" \
+        "$STELLAR_NETWORK"
+fi
+
+# Configure identity securely
+# We use a temporary identity 'deployer' to avoid exposing the key in logs
+# The --secret-key argument is passed, but we suppress command echoing
+log "Configuring deployer identity..."
 stellar keys add deployer --secret-key "$STELLAR_SECRET_KEY" >/dev/null 2>&1
-
-# --- Build ---
-log "Building contracts..."
-./build.sh
-
-# --- Pre-deploy validation ---
-log "Running pre-deploy validation..."
-./scripts/validate.sh
-
-# --- Deploy ---
-> "$OUTPUT_FILE"  # Reset output file
 
 deploy_contract() {
     local wasm_path=$1
     local contract_name=$2
-
+    
     if [ ! -f "$wasm_path" ]; then
-        log "Skipping $contract_name — WASM not found"
+        log "Warning: WASM file not found at $wasm_path. Skipping $contract_name."
         return
     fi
-
-    log "Deploying $contract_name..."
+    
+    log "Deploying $contract_name ($wasm_path)..."
+    
+    # Capture output to extract Contract ID
     local output
-    if ! output=$(stellar contract deploy \
+    output=$(stellar contract deploy \
         --wasm "$wasm_path" \
         --source deployer \
-        --network "$NETWORK" \
-        --no-wait 2>&1); then
+        --network "$STELLAR_NETWORK" \
+        --no-wait 2>&1)
+        
+    # Check if deployment was successful (stellar cli might output the ID directly or in text)
+    # Assuming output is the contract ID or contains it.
+    # Typical output for deploy is the Contract ID.
+    
+    if [ $? -ne 0 ]; then
         log "Error deploying $contract_name: $output"
-        log "Triggering rollback..."
-        ./scripts/rollback.sh restore "$NETWORK"
-        stellar keys rm deployer 2>/dev/null || true
         exit 1
     fi
-
-    local contract_id
-    contract_id=$(echo "$output" | tail -n 1)
-    log "$contract_name deployed: $contract_id"
-    echo "${contract_name^^}_ID=$contract_id" >> "$OUTPUT_FILE"
+    
+    local contract_id=$(echo "$output" | tail -n 1) # Assuming last line is ID
+    
+    log "Success! $contract_name deployed with ID: $contract_id"
+    
+    # Save to environment file
+    echo "${contract_name^^}_ID=$contract_id" >> deployed_contracts.env
 }
 
-deploy_contract "target/wasm32-unknown-unknown/release/trading.wasm"      "trading"
-deploy_contract "target/wasm32-unknown-unknown/release/token.wasm"         "token"
-deploy_contract "target/wasm32-unknown-unknown/release/yield_farming.wasm" "yield_farming"
+# Build contracts
+log "Building contracts..."
+cargo build --release --target wasm32-unknown-unknown
 
-# --- Post-deploy validation ---
-log "Running post-deploy validation..."
-# shellcheck disable=SC1091
-source "$OUTPUT_FILE"
+# Check for WASM files and deploy
+# Based on package names in Cargo.toml
+deploy_contract "target/wasm32-unknown-unknown/release/trading.wasm" "trading"
+deploy_contract "target/wasm32-unknown-unknown/release/academy.wasm" "academy"
+deploy_contract "target/wasm32-unknown-unknown/release/social_rewards.wasm" "social_rewards"
+deploy_contract "target/wasm32-unknown-unknown/release/token.wasm" "token"
 
-source ./scripts/validate.sh
+# Cleanup
+log "Cleaning up..."
+stellar keys rm deployer
 
-for contract_var in TRADING_ID TOKEN_ID YIELD_FARMING_ID; do
-    id="${!contract_var}"
-    name="${contract_var/_ID/}"
-    if [ -n "$id" ]; then
-        if ! stellar contract info --id "$id" --network "$NETWORK" >/dev/null 2>&1; then
-            log "Post-deploy validation FAILED for $name ($id)"
-            log "Triggering rollback..."
-            ./scripts/rollback.sh restore "$NETWORK"
-            stellar keys rm deployer 2>/dev/null || true
-            exit 1
-        fi
-        log "Post-deploy OK: $name ($id)"
-    fi
-done
-
-# --- Cleanup ---
-stellar keys rm deployer 2>/dev/null || true
-log "Deployment complete. Contract IDs saved to $OUTPUT_FILE"
-log "Deploy log saved to $DEPLOY_LOG"
-cat "$OUTPUT_FILE"
+log "Deployment complete. IDs saved to deployed_contracts.env"

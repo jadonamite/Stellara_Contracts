@@ -37,9 +37,7 @@ describe('VoiceSessionService', () => {
 
     service = module.get<VoiceSessionService>(VoiceSessionService);
     redisService = module.get<RedisService>(RedisService);
-    stateMachine = module.get<ConversationStateMachineService>(
-      ConversationStateMachineService,
-    );
+    stateMachine = module.get<ConversationStateMachineService>(ConversationStateMachineService);
   });
 
   afterEach(() => {
@@ -54,7 +52,7 @@ describe('VoiceSessionService', () => {
     it('should create a new voice session', async () => {
       const userId = 'user123';
       const context = FeatureContext.GENERAL;
-
+      
       mockRedisService.client.setEx.mockResolvedValue('OK');
       mockRedisService.client.sAdd.mockResolvedValue(1);
       mockRedisService.client.expire.mockResolvedValue(1);
@@ -85,18 +83,14 @@ describe('VoiceSessionService', () => {
         ttl: 3600,
       };
 
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(mockSession),
-      );
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(mockSession));
 
       const session = await service.getSession(sessionId);
 
       expect(session).toBeDefined();
       expect(session?.id).toBe(sessionId);
       expect(session?.userId).toBe('user123');
-      expect(mockRedisService.client.get).toHaveBeenCalledWith(
-        `voice:session:${sessionId}`,
-      );
+      expect(mockRedisService.client.get).toHaveBeenCalledWith(`voice:session:${sessionId}`);
     });
 
     it('should return null for non-existent session', async () => {
@@ -122,15 +116,10 @@ describe('VoiceSessionService', () => {
         ttl: 3600,
       };
 
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(mockSession),
-      );
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(mockSession));
       mockRedisService.client.setEx.mockResolvedValue('OK');
 
-      const result = await service.updateSessionState(
-        sessionId,
-        ConversationState.LISTENING,
-      );
+      const result = await service.updateSessionState(sessionId, ConversationState.LISTENING);
 
       expect(result).toBe(true);
       expect(mockRedisService.client.setEx).toHaveBeenCalled();
@@ -149,14 +138,9 @@ describe('VoiceSessionService', () => {
         ttl: 3600,
       };
 
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(mockSession),
-      );
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(mockSession));
 
-      const result = await service.updateSessionState(
-        sessionId,
-        ConversationState.RESPONDING,
-      );
+      const result = await service.updateSessionState(sessionId, ConversationState.RESPONDING);
 
       expect(result).toBe(false);
       expect(mockRedisService.client.setEx).not.toHaveBeenCalled();
@@ -177,20 +161,16 @@ describe('VoiceSessionService', () => {
         ttl: 3600,
       };
 
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(mockSession),
-      );
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(mockSession));
       mockRedisService.client.setEx.mockResolvedValue('OK');
 
       const result = await service.addMessage(sessionId, 'Hello', true);
 
       expect(result).toBe(true);
       expect(mockRedisService.client.setEx).toHaveBeenCalled();
-
+      
       // Verify the session was retrieved and updated
-      expect(mockRedisService.client.get).toHaveBeenCalledWith(
-        'voice:session:session123',
-      );
+      expect(mockRedisService.client.get).toHaveBeenCalledWith('voice:session:session123');
     });
   });
 
@@ -208,9 +188,7 @@ describe('VoiceSessionService', () => {
         ttl: 3600,
       };
 
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(mockSession),
-      );
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(mockSession));
       mockRedisService.client.setEx.mockResolvedValue('OK');
 
       const result = await service.interruptSession(sessionId);
@@ -232,9 +210,7 @@ describe('VoiceSessionService', () => {
         ttl: 3600,
       };
 
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(mockSession),
-      );
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(mockSession));
 
       const result = await service.interruptSession(sessionId);
 
@@ -257,18 +233,14 @@ describe('VoiceSessionService', () => {
         ttl: 3600,
       };
 
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(mockSession),
-      );
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(mockSession));
       mockRedisService.client.del.mockResolvedValue(1);
       mockRedisService.client.sRem.mockResolvedValue(1);
 
       const result = await service.terminateSession(sessionId);
 
       expect(result).toBe(true);
-      expect(mockRedisService.client.del).toHaveBeenCalledWith(
-        `voice:session:${sessionId}`,
-      );
+      expect(mockRedisService.client.del).toHaveBeenCalledWith(`voice:session:${sessionId}`);
       expect(mockRedisService.client.sRem).toHaveBeenCalled();
     });
   });
@@ -286,12 +258,8 @@ describe('VoiceSessionService', () => {
         ttl: 3600, // 1 hour TTL
       };
 
-      mockRedisService.client.keys.mockResolvedValue([
-        'voice:session:expired123',
-      ]);
-      mockRedisService.client.get.mockResolvedValue(
-        JSON.stringify(expiredSession),
-      );
+      mockRedisService.client.keys.mockResolvedValue(['voice:session:expired123']);
+      mockRedisService.client.get.mockResolvedValue(JSON.stringify(expiredSession));
       mockRedisService.client.del.mockResolvedValue(1);
       mockRedisService.client.sRem.mockResolvedValue(1);
 

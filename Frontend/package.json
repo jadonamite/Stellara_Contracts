@@ -1,8 +1,9 @@
 {
-  "name": "frontend",
+  "name": "stellara-frontend",
   "version": "1.0.0",
   "description": "Stellara AI – The Intelligent Web3 Crypto Academy",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

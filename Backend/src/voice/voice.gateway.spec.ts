@@ -65,10 +65,8 @@ describe('VoiceGateway', () => {
 
     gateway = module.get<VoiceGateway>(VoiceGateway);
     voiceSessionService = module.get<VoiceSessionService>(VoiceSessionService);
-    streamingResponseService = module.get<StreamingResponseService>(
-      StreamingResponseService,
-    );
-
+    streamingResponseService = module.get<StreamingResponseService>(StreamingResponseService);
+    
     gateway['server'] = mockServer;
   });
 
@@ -94,18 +92,10 @@ describe('VoiceGateway', () => {
 
       await gateway.handleConnection(mockClient as any);
 
-      expect(mockVoiceSessionService.getSession).toHaveBeenCalledWith(
-        'session123',
-      );
-      expect(mockVoiceSessionService.updateSessionSocket).toHaveBeenCalledWith(
-        'session123',
-        'client123',
-      );
+      expect(mockVoiceSessionService.getSession).toHaveBeenCalledWith('session123');
+      expect(mockVoiceSessionService.updateSessionSocket).toHaveBeenCalledWith('session123', 'client123');
       expect(mockClient.join).toHaveBeenCalledWith('session123');
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:resumed', {
-        sessionId: 'session123',
-        state: ConversationState.IDLE,
-      });
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:resumed', { sessionId: 'session123', state: ConversationState.IDLE });
     });
 
     it('should disconnect client with invalid session', async () => {
@@ -113,9 +103,7 @@ describe('VoiceGateway', () => {
 
       await gateway.handleConnection(mockClient as any);
 
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', {
-        message: 'Invalid session',
-      });
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', { message: 'Invalid session' });
       expect(mockClient.disconnect).toHaveBeenCalled();
     });
   });
@@ -139,16 +127,9 @@ describe('VoiceGateway', () => {
 
       await gateway.createSession(mockClient as any, createSessionDto);
 
-      expect(mockVoiceSessionService.createSession).toHaveBeenCalledWith(
-        'user123',
-        FeatureContext.GENERAL,
-        undefined,
-        undefined,
-      );
+      expect(mockVoiceSessionService.createSession).toHaveBeenCalledWith('user123', FeatureContext.GENERAL, undefined, undefined);
       expect(mockClient.join).toHaveBeenCalledWith('newSession123');
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:session-created', {
-        session: mockSession,
-      });
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:session-created', { session: mockSession });
     });
 
     it('should reuse existing session when available', async () => {
@@ -163,18 +144,14 @@ describe('VoiceGateway', () => {
         state: ConversationState.LISTENING,
       };
 
-      mockVoiceSessionService.getUserActiveSessions.mockResolvedValue([
-        existingSession,
-      ]);
+      mockVoiceSessionService.getUserActiveSessions.mockResolvedValue([existingSession]);
       mockVoiceSessionService.updateSessionSocket.mockResolvedValue(true);
 
       await gateway.createSession(mockClient as any, createSessionDto);
 
       expect(mockVoiceSessionService.createSession).not.toHaveBeenCalled();
       expect(mockClient.join).toHaveBeenCalledWith('existingSession123');
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:session-created', {
-        session: existingSession,
-      });
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:session-created', { session: existingSession });
     });
   });
 
@@ -191,15 +168,15 @@ describe('VoiceGateway', () => {
       };
 
       mockVoiceSessionService.getSession.mockResolvedValue(mockSession);
-      mockStreamingResponseService.startStreamingResponse.mockResolvedValue(
-        'stream123',
-      );
+      mockStreamingResponseService.startStreamingResponse.mockResolvedValue('stream123');
 
       await gateway.handleMessage(mockClient as any, messageDto);
 
-      expect(
-        mockStreamingResponseService.startStreamingResponse,
-      ).toHaveBeenCalledWith(mockServer, 'session123', 'Hello AI');
+      expect(mockStreamingResponseService.startStreamingResponse).toHaveBeenCalledWith(
+        mockServer,
+        'session123',
+        'Hello AI'
+      );
     });
 
     it('should return error for user with no active session', async () => {
@@ -208,12 +185,8 @@ describe('VoiceGateway', () => {
 
       await gateway.handleMessage(mockClient as any, messageDto);
 
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', {
-        message: 'No active session',
-      });
-      expect(
-        mockStreamingResponseService.startStreamingResponse,
-      ).not.toHaveBeenCalled();
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', { message: 'No active session' });
+      expect(mockStreamingResponseService.startStreamingResponse).not.toHaveBeenCalled();
     });
   });
 
@@ -231,12 +204,9 @@ describe('VoiceGateway', () => {
       expect(mockStreamingResponseService.interruptStream).toHaveBeenCalledWith(
         mockServer,
         'session123',
-        'stream123',
+        'stream123'
       );
-      expect(mockClient.emit).toHaveBeenCalledWith(
-        'voice:interrupt-acknowledged',
-        { sessionId: 'session123', streamId: 'stream123' },
-      );
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:interrupt-acknowledged', { sessionId: 'session123', streamId: 'stream123' });
     });
 
     it('should return error when interrupt fails', async () => {
@@ -245,9 +215,7 @@ describe('VoiceGateway', () => {
 
       await gateway.handleInterrupt(mockClient as any, data);
 
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', {
-        message: 'Failed to interrupt',
-      });
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', { message: 'Failed to interrupt' });
     });
   });
 
@@ -262,17 +230,10 @@ describe('VoiceGateway', () => {
 
       await gateway.handleTerminate(mockClient as any);
 
-      expect(mockStreamingResponseService.interruptStream).toHaveBeenCalledWith(
-        mockServer,
-        'session123',
-      );
-      expect(mockVoiceSessionService.terminateSession).toHaveBeenCalledWith(
-        'session123',
-      );
+      expect(mockStreamingResponseService.interruptStream).toHaveBeenCalledWith(mockServer, 'session123');
+      expect(mockVoiceSessionService.terminateSession).toHaveBeenCalledWith('session123');
       expect(mockClient.leave).toHaveBeenCalledWith('session123');
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:terminated', {
-        sessionId: 'session123',
-      });
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:terminated', { sessionId: 'session123' });
     });
 
     it('should return error when termination fails', async () => {
@@ -280,9 +241,7 @@ describe('VoiceGateway', () => {
 
       await gateway.handleTerminate(mockClient as any);
 
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', {
-        message: 'Failed to terminate session',
-      });
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:error', { message: 'Failed to terminate session' });
     });
   });
 
@@ -296,13 +255,8 @@ describe('VoiceGateway', () => {
 
       await gateway.handlePing(mockClient as any);
 
-      expect(mockVoiceSessionService.updateSessionSocket).toHaveBeenCalledWith(
-        'session123',
-        'client123',
-      );
-      expect(mockClient.emit).toHaveBeenCalledWith('voice:pong', {
-        timestamp: expect.any(Number),
-      });
+      expect(mockVoiceSessionService.updateSessionSocket).toHaveBeenCalledWith('session123', 'client123');
+      expect(mockClient.emit).toHaveBeenCalledWith('voice:pong', { timestamp: expect.any(Number) });
     });
   });
 });

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as winston from 'winston';
 import { LogContext } from '../types/trace-context.interface';
+import * as Sentry from '@sentry/node';
 
 /**
  * Structured logging service using Winston
@@ -13,6 +14,7 @@ export class LoggingService {
 
   constructor() {
     this.initializeLogger();
+    this.initializeSentry();
   }
 
   /**
@@ -24,19 +26,17 @@ export class LoggingService {
       winston.format.errors({ stack: true }),
       winston.format.splat(),
       winston.format.json(),
-      winston.format.printf(
-        ({ level, message, timestamp, traceId, spanId, ...meta }) => {
-          const context: Record<string, unknown> = {
-            level,
-            timestamp,
-            message,
-            ...meta,
-          };
-          if (traceId) context.traceId = traceId;
-          if (spanId) context.spanId = spanId;
-          return JSON.stringify(context);
-        },
-      ),
+      winston.format.printf(({ level, message, timestamp, traceId, spanId, ...meta }) => {
+        const context: Record<string, unknown> = {
+          level,
+          timestamp,
+          message,
+          ...meta,
+        };
+        if (traceId) context.traceId = traceId;
+        if (spanId) context.spanId = spanId;
+        return JSON.stringify(context);
+      }),
     );
 
     this.logger = winston.createLogger({
@@ -70,6 +70,19 @@ export class LoggingService {
   }
 
   /**
+   * (Optional) Initialize Sentry for centralized error tracking
+   */
+  private initializeSentry() {
+    if (process.env.SENTRY_DSN) {
+      Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV,
+        tracesSampleRate: 1.0,
+      });
+    }
+  }
+
+  /**
    * Set request context for correlation across logs
    */
   setRequestContext(traceId: string, context: LogContext) {
@@ -98,12 +111,19 @@ export class LoggingService {
   }
 
   /**
-   * Log error level message with context
+   * Log error level message with context and severity
+   * @param message Error message
+   * @param error Error object or details
+   * @param context Log context
+   * @param category Error category (optional)
+   * @param severity Severity level: 'critical' | 'high' | 'medium' | 'low' (optional)
    */
   error(
     message: string,
     error?: Error | any,
     context?: LogContext | Record<string, any>,
+    category?: string,
+    severity?: 'critical' | 'high' | 'medium' | 'low',
   ) {
     const meta = context || {};
     if (error instanceof Error) {
@@ -115,7 +135,12 @@ export class LoggingService {
     } else if (error) {
       meta['error'] = error;
     }
+    if (category) meta['category'] = category;
+    if (severity) meta['severity'] = severity;
     this.logger.error(message, meta);
+    if (severity === 'critical' && process.env.SENTRY_DSN) {
+      Sentry.captureException(error || message, { extra: meta });
+    }
   }
 
   /**
@@ -135,11 +160,7 @@ export class LoggingService {
   /**
    * Log with custom level
    */
-  log(
-    level: string,
-    message: string,
-    context?: LogContext | Record<string, any>,
-  ) {
+  log(level: string, message: string, context?: LogContext | Record<string, any>) {
     this.logger.log(level, message, context);
   }
 

@@ -43,9 +43,7 @@ export class StellarMonitorController {
   @ApiOperation({ summary: 'Register a new webhook consumer' })
   @ApiResponse({ status: 201, description: 'Consumer created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  async createConsumer(
-    @Body() createDto: CreateConsumerDto,
-  ): Promise<WebhookConsumer> {
+  async createConsumer(@Body() createDto: CreateConsumerDto): Promise<WebhookConsumer> {
     try {
       return await this.consumerService.createConsumer(createDto);
     } catch (error) {
@@ -57,9 +55,7 @@ export class StellarMonitorController {
   @ApiOperation({ summary: 'List all webhook consumers' })
   @ApiQuery({ name: 'activeOnly', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'List of consumers' })
-  async getConsumers(
-    @Query('activeOnly') activeOnly?: string,
-  ): Promise<WebhookConsumer[]> {
+  async getConsumers(@Query('activeOnly') activeOnly?: string): Promise<WebhookConsumer[]> {
     const isActiveOnly = activeOnly === 'true';
     return this.consumerService.getAllConsumers(isActiveOnly);
   }
@@ -169,12 +165,7 @@ export class StellarMonitorController {
     @Query('limit') limit?: string,
     @Query('eventType') eventType?: EventType,
     @Query('deliveryStatus') deliveryStatus?: DeliveryStatus,
-  ): Promise<{
-    events: StellarEvent[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
+  ): Promise<{ events: StellarEvent[]; total: number; page: number; limit: number }> {
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '50', 10);
 
@@ -260,13 +251,7 @@ export class StellarMonitorController {
   @ApiOperation({ summary: 'Simulate a payment event' })
   @ApiResponse({ status: 201, description: 'Simulated event created' })
   async simulatePayment(
-    @Body()
-    body?: {
-      from?: string;
-      to?: string;
-      amount?: string;
-      assetType?: string;
-    },
+    @Body() body?: { from?: string; to?: string; amount?: string; assetType?: string },
   ): Promise<StellarEvent> {
     return this.monitorService.simulatePaymentEvent(
       body?.from,
@@ -280,12 +265,7 @@ export class StellarMonitorController {
   @ApiOperation({ summary: 'Simulate an offer event' })
   @ApiResponse({ status: 201, description: 'Simulated event created' })
   async simulateOffer(
-    @Body()
-    body?: {
-      seller?: string;
-      sellingAmount?: string;
-      buyingAmount?: string;
-    },
+    @Body() body?: { seller?: string; sellingAmount?: string; buyingAmount?: string },
   ): Promise<StellarEvent> {
     return this.monitorService.simulateOfferEvent(
       body?.seller,

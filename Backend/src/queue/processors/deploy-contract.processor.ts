@@ -28,9 +28,7 @@ export class DeployContractProcessor {
 
       // Validate contract data
       if (!contractName || !contractCode || !network) {
-        throw new Error(
-          'Missing required fields: contractName, contractCode, network',
-        );
+        throw new Error('Missing required fields: contractName, contractCode, network');
       }
 
       this.logger.debug(`Deploying contract ${contractName}...`);
@@ -46,7 +44,7 @@ export class DeployContractProcessor {
 
       // Simulate contract deployment
       const deploymentResult = await this.deployToNetwork(
-        compilationResult.bytecode,
+        compilationResult.bytecode!,
         network,
         initializer,
       );
@@ -73,10 +71,7 @@ export class DeployContractProcessor {
         },
       };
     } catch (error) {
-      this.logger.error(
-        `Failed to deploy contract: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to deploy contract: ${error.message}`, error.stack);
       throw error;
     }
   }

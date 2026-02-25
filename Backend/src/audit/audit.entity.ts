@@ -1,9 +1,4 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
 @Entity('audit_logs')
 export class AuditLog {
@@ -19,7 +14,7 @@ export class AuditLog {
   @Column({ nullable: true })
   entity_id?: string;
 
-  @Column('text', { nullable: true })
+  @Column('jsonb', { nullable: true })
   metadata?: Record<string, any>;
 
   @CreateDateColumn()

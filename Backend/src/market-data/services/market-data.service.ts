@@ -36,11 +36,7 @@ export class MarketDataService {
     const snapshot = await this.fetchMarketSnapshot(assetFilter);
 
     // Cache the result
-    await this.cacheService.set(
-      cacheKey,
-      snapshot,
-      CacheNamespace.MARKET_SNAPSHOT,
-    );
+    await this.cacheService.set(cacheKey, snapshot, CacheNamespace.MARKET_SNAPSHOT);
 
     return { ...snapshot, cached: false };
   }
@@ -48,10 +44,7 @@ export class MarketDataService {
   /**
    * Get asset price data with cache
    */
-  async getAssetPrice(
-    assetCode: string,
-    issuer: string,
-  ): Promise<AssetPriceDto | null> {
+  async getAssetPrice(assetCode: string, issuer: string): Promise<AssetPriceDto | null> {
     const cacheKey = `${assetCode}:${issuer}`;
 
     // Try cache first
@@ -70,11 +63,7 @@ export class MarketDataService {
 
     if (priceData) {
       // Cache the result
-      await this.cacheService.set(
-        cacheKey,
-        priceData,
-        CacheNamespace.PRICE_DATA,
-      );
+      await this.cacheService.set(cacheKey, priceData, CacheNamespace.PRICE_DATA);
     }
 
     return priceData;
@@ -86,15 +75,10 @@ export class MarketDataService {
   async invalidateMarketCache(assetCode?: string): Promise<number> {
     if (assetCode) {
       // Invalidate specific asset
-      return await this.cacheService.invalidateByPattern(
-        assetCode,
-        CacheNamespace.PRICE_DATA,
-      );
+      return await this.cacheService.invalidateByPattern(assetCode, CacheNamespace.PRICE_DATA);
     } else {
       // Invalidate all market snapshots
-      return await this.cacheService.invalidateNamespace(
-        CacheNamespace.MARKET_SNAPSHOT,
-      );
+      return await this.cacheService.invalidateNamespace(CacheNamespace.MARKET_SNAPSHOT);
     }
   }
 
@@ -104,9 +88,7 @@ export class MarketDataService {
    * Fetch market snapshot from external API
    * This is a mock implementation - replace with actual API calls
    */
-  private async fetchMarketSnapshot(
-    assetFilter?: string[],
-  ): Promise<MarketSnapshotDto> {
+  private async fetchMarketSnapshot(assetFilter?: string[]): Promise<MarketSnapshotDto> {
     // Simulate API call delay
     await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -139,7 +121,7 @@ export class MarketDataService {
       {
         code: 'yXLM',
         issuer: 'GARDNV3Q7YGT4AKSDF25LT32YSCCW4EV22Y2TV3I2PU2MMXJTEDL5T55',
-        priceUSD: 0.13,
+        priceUSD: 0.130,
         change24h: 2.8,
         volume24h: 12000000,
         marketCap: 26000000,
@@ -166,10 +148,7 @@ export class MarketDataService {
    * Fetch single asset price from external API
    * This is a mock implementation - replace with actual API calls
    */
-  private async fetchAssetPrice(
-    assetCode: string,
-    issuer: string,
-  ): Promise<AssetPriceDto | null> {
+  private async fetchAssetPrice(assetCode: string, issuer: string): Promise<AssetPriceDto | null> {
     // Simulate API call delay
     await new Promise((resolve) => setTimeout(resolve, 300));
 
