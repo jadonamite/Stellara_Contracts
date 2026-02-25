@@ -798,4 +798,41 @@ impl GovernanceManager {
             .get(proposal_id)
             .ok_or(GovernanceError::ProposalNotFound)
     }
+    
+    /// Halt a proposal (wrapper for HaltModule)
+    pub fn halt_proposal(
+        env: &Env,
+        proposal_id: u64,
+        admin: Address,
+        reason: Symbol,
+    ) -> Result<(), GovernanceError> {
+        HaltModule::halt_proposal(env, proposal_id, admin, reason)
+    }
+    
+    /// Resume a halted proposal (wrapper for HaltModule)
+    pub fn resume_proposal(
+        env: &Env,
+        proposal_id: u64,
+        admin: Address,
+        new_timelock_delay: u64,
+    ) -> Result<(), GovernanceError> {
+        HaltModule::resume_proposal(env, proposal_id, admin, new_timelock_delay)
+    }
+    
+    /// Revoke an approval (wrapper for ApprovalModule)
+    pub fn revoke_approval(
+        env: &Env,
+        proposal_id: u64,
+        approver: Address,
+    ) -> Result<(), GovernanceError> {
+        ApprovalModule::revoke_approval(env, proposal_id, approver)
+    }
+    
+    /// Get time to execution (wrapper for ApprovalModule)
+    pub fn get_time_to_execution(
+        env: &Env,
+        proposal_id: u64,
+    ) -> Result<u64, GovernanceError> {
+        ApprovalModule::get_time_to_execution(env, proposal_id)
+    }
 }

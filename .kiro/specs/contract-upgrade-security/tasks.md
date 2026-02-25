@@ -69,7 +69,7 @@
   - **Property 15: Governance action event emission**
   - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
 
-- [ ] 6. Update GovernanceManager with enhanced logic
+- [x] 6. Update GovernanceManager with enhanced logic
   - Integrate `ValidationModule` into `propose_upgrade` function
   - Integrate `HaltModule` functions into governance manager
   - Integrate `ApprovalModule` into `approve_proposal` function
@@ -81,7 +81,7 @@
   - **Property 2: Metadata round-trip consistency**
   - **Validates: Requirements 2.1, 2.2, 2.3, 5.5**
 
-- [ ] 7. Update trading contract to use enhanced governance
+- [x] 7. Update trading contract to use enhanced governance
   - Update `propose_upgrade` to pass new parameters (version info, simulation data)
   - Add `halt_upgrade` function wrapper
   - Add `resume_upgrade` function wrapper

@@ -381,6 +381,53 @@ impl UpgradeableTradingContract {
         GovernanceManager::cancel_proposal(&env, proposal_id, admin)
             .map_err(|_| TradeError::Unauthorized)
     }
+    
+    /// Halt an upgrade proposal (admin only)
+    pub fn halt_upgrade(
+        env: Env,
+        proposal_id: u64,
+        admin: Address,
+        reason: Symbol,
+    ) -> Result<(), TradeError> {
+        admin.require_auth();
+
+        GovernanceManager::halt_proposal(&env, proposal_id, admin, reason)
+            .map_err(|_| TradeError::Unauthorized)
+    }
+    
+    /// Resume a halted upgrade proposal (admin only)
+    pub fn resume_upgrade(
+        env: Env,
+        proposal_id: u64,
+        admin: Address,
+        new_timelock_delay: u64,
+    ) -> Result<(), TradeError> {
+        admin.require_auth();
+
+        GovernanceManager::resume_proposal(&env, proposal_id, admin, new_timelock_delay)
+            .map_err(|_| TradeError::Unauthorized)
+    }
+    
+    /// Revoke an approval
+    pub fn revoke_approval_upgrade(
+        env: Env,
+        proposal_id: u64,
+        approver: Address,
+    ) -> Result<(), TradeError> {
+        approver.require_auth();
+
+        GovernanceManager::revoke_approval(&env, proposal_id, approver)
+            .map_err(|_| TradeError::Unauthorized)
+    }
+    
+    /// Get time remaining until execution is possible
+    pub fn get_time_to_execution(
+        env: Env,
+        proposal_id: u64,
+    ) -> Result<u64, TradeError> {
+        GovernanceManager::get_time_to_execution(&env, proposal_id)
+            .map_err(|_| TradeError::Unauthorized)
+    }
 }
 
 #[cfg(test)]
