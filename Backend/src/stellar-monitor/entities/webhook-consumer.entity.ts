@@ -1,11 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { ConsumerStatus } from '../types/stellar.types';
 
 @Entity('webhook_consumers')
@@ -61,13 +54,4 @@ export class WebhookConsumer {
 
   @Column({ default: 0 })
   failedDeliveries: number;
-
-  @Column({ type: 'simple-array', nullable: true })
-  eventTypes?: string[]; // Array of EventType strings
-
-  @Column({ type: 'simple-array', nullable: true })
-  contractIds?: string[]; // Array of contract IDs to monitor
-
-  @Column({ type: 'simple-array', nullable: true })
-  accounts?: string[]; // Array of account addresses to monitor
 }

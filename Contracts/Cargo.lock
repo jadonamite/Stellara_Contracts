@@ -3,6 +3,20 @@
 version = 4
 
 [[package]]
+name = "academy-rewards"
+version = "0.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "academy-vesting"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -510,14 +524,6 @@ name = "gimli"
 version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4271d37baee1b8c7e4b708028c57d816cf9d2434acb33a549475f78c181f6253"
-
-[[package]]
-name = "governance_token"
-version = "1.0.0"
-dependencies = [
- "shared",
- "soroban-sdk",
-]
 
 [[package]]
 name = "group"
@@ -1139,6 +1145,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
+name = "social_rewards"
+version = "0.1.0"
+dependencies = [
+ "shared",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soroban-builtin-sdk-macros"
 version = "20.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1332,14 +1346,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "staking"
-version = "1.0.0"
-dependencies = [
- "shared",
- "soroban-sdk",
-]
-
-[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1463,7 +1469,6 @@ dependencies = [
 name = "token"
 version = "0.1.0"
 dependencies = [
- "shared",
  "soroban-sdk",
 ]
 

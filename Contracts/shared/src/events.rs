@@ -33,7 +33,6 @@ pub mod topics {
 
     // Token events (for reference - already implemented in token contract)
     pub const TRANSFER: Symbol = symbol_short!("transfer");
-    pub const APPROVAL: Symbol = symbol_short!("approve");
     pub const MINT: Symbol = symbol_short!("mint");
     pub const BURN: Symbol = symbol_short!("burn");
 }
@@ -98,76 +97,6 @@ pub struct FeeCollectedEvent {
     pub amount: i128,
     /// Token used for payment
     pub token: Address,
-    /// Block timestamp
-    pub timestamp: u64,
-}
-
-// =============================================================================
-// Token Events
-// =============================================================================
-
-/// Event emitted when tokens are transferred
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct TransferEvent {
-    /// Address sending tokens
-    pub from: Address,
-    /// Address receiving tokens
-    pub to: Address,
-    /// Amount transferred
-    pub amount: i128,
-    /// Token contract address
-    pub token: Address,
-    /// Block timestamp
-    pub timestamp: u64,
-}
-
-/// Event emitted when an approval is granted
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct ApprovalEvent {
-    /// Address granting approval
-    pub owner: Address,
-    /// Address receiving approval
-    pub spender: Address,
-    /// Amount approved
-    pub amount: i128,
-    /// Token contract address
-    pub token: Address,
-    /// Expiration ledger
-    pub expiration_ledger: u32,
-    /// Block timestamp
-    pub timestamp: u64,
-}
-
-/// Event emitted when tokens are minted
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct MintEvent {
-    /// Address receiving minted tokens
-    pub to: Address,
-    /// Amount minted
-    pub amount: i128,
-    /// Token contract address
-    pub token: Address,
-    /// Total supply after mint
-    pub total_supply: i128,
-    /// Block timestamp
-    pub timestamp: u64,
-}
-
-/// Event emitted when tokens are burned
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct BurnEvent {
-    /// Address burning tokens
-    pub from: Address,
-    /// Amount burned
-    pub amount: i128,
-    /// Token contract address
-    pub token: Address,
-    /// Total supply after burn
-    pub total_supply: i128,
     /// Block timestamp
     pub timestamp: u64,
 }
@@ -353,25 +282,5 @@ impl EventEmitter {
     /// Emit a reward claimed event
     pub fn reward_claimed(env: &Env, event: RewardClaimedEvent) {
         env.events().publish((topics::REWARD_CLAIMED,), event);
-    }
-
-    /// Emit a transfer event
-    pub fn transfer(env: &Env, event: TransferEvent) {
-        env.events().publish((topics::TRANSFER,), event);
-    }
-
-    /// Emit an approval event
-    pub fn approval(env: &Env, event: ApprovalEvent) {
-        env.events().publish((topics::APPROVAL,), event);
-    }
-
-    /// Emit a mint event
-    pub fn mint(env: &Env, event: MintEvent) {
-        env.events().publish((topics::MINT,), event);
-    }
-
-    /// Emit a burn event
-    pub fn burn(env: &Env, event: BurnEvent) {
-        env.events().publish((topics::BURN,), event);
     }
 }

@@ -1,10 +1,71 @@
+  /**
+   * Cache-aside pattern: fetch from cache or load and cache
+   */
+  async getOrLoad<T>(
+    key: string,
+    namespace: CacheNamespace,
+    loader: () => Promise<T>,
+    customTtl?: number,
+  ): Promise<T> {
+    const cached = await this.get<T>(key, namespace);
+    if (cached !== null) return cached;
+    const value = await loader();
+    await this.set<T>(key, value, namespace, customTtl);
+    return value;
+  }
+
+  /**
+   * Write-through pattern: update cache immediately on write
+   */
+  async writeThrough<T>(
+    key: string,
+    value: T,
+    namespace: CacheNamespace,
+    persistFn: (v: T) => Promise<void>,
+    customTtl?: number,
+  ): Promise<void> {
+    await persistFn(value);
+    await this.set<T>(key, value, namespace, customTtl);
+  }
+
+  /**
+   * Cache warming for critical namespaces
+   */
+  async warmCache(
+    namespace: CacheNamespace,
+    keys: string[],
+    loader: (key: string) => Promise<any>,
+    customTtl?: number,
+  ): Promise<void> {
+    for (const key of keys) {
+      const exists = await this.has(key, namespace);
+      if (!exists) {
+        const value = await loader(key);
+        await this.set(key, value, namespace, customTtl);
+        this.logger.log(`Cache warmed: ${namespace}:${key}`);
+      }
+    }
+  }
+
+  /**
+   * Smart invalidation: event-driven, pattern-based
+   */
+  async smartInvalidate(
+    event: { namespace: CacheNamespace; keys?: string[]; pattern?: string; reason?: string },
+  ): Promise<number> {
+    if (event.keys && event.keys.length > 0) {
+      return await this.invalidate(event.keys, event.namespace);
+    }
+    if (event.pattern) {
+      return await this.invalidateByPattern(event.pattern, event.namespace);
+    }
+    // Fallback: invalidate entire namespace
+    return await this.invalidateNamespace(event.namespace);
+  }
+  // ...existing code...
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
-import {
-  CacheMetrics,
-  CacheNamespace,
-  CACHE_TTL_CONFIG,
-} from '../types/cache-config.types';
+import { CacheMetrics, CacheNamespace, CACHE_TTL_CONFIG } from '../types/cache-config.types';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -30,7 +91,7 @@ export class MarketCacheService {
         ]);
 
         this.logger.debug(`Cache hit: ${cacheKey}`);
-        return cached && typeof cached === 'string' ? JSON.parse(cached) : null;
+        return JSON.parse(cached) as T;
       }
 
       // Record cache miss
@@ -42,10 +103,7 @@ export class MarketCacheService {
       this.logger.debug(`Cache miss: ${cacheKey}`);
       return null;
     } catch (error) {
-      this.logger.error(
-        `Error retrieving from cache: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error retrieving from cache: ${error.message}`, error.stack);
       return null; // Fail gracefully
     }
   }
@@ -98,23 +156,16 @@ export class MarketCacheService {
         return 0;
       }
 
-      const cacheKeys = keys.map((key) =>
-        this.generateCacheKey(key, namespace),
-      );
+      const cacheKeys = keys.map((key) => this.generateCacheKey(key, namespace));
       const metadataKeys = cacheKeys.map((key) => `${key}:metadata`);
       const allKeys = [...cacheKeys, ...metadataKeys];
 
       await this.redisService.client.del(allKeys);
 
-      this.logger.log(
-        `Invalidated ${keys.length} cache entries in ${namespace}`,
-      );
+      this.logger.log(`Invalidated ${keys.length} cache entries in ${namespace}`);
       return keys.length;
     } catch (error) {
-      this.logger.error(
-        `Error invalidating cache: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error invalidating cache: ${error.message}`, error.stack);
       return 0;
     }
   }
@@ -122,10 +173,7 @@ export class MarketCacheService {
   /**
    * Invalidate cache entries matching a pattern
    */
-  async invalidateByPattern(
-    pattern: string,
-    namespace: CacheNamespace,
-  ): Promise<number> {
+  async invalidateByPattern(pattern: string, namespace: CacheNamespace): Promise<number> {
     try {
       const searchPattern = `${namespace}:${pattern}*`;
       const keys = await this.redisService.client.keys(searchPattern);
@@ -136,15 +184,10 @@ export class MarketCacheService {
 
       await this.redisService.client.del(keys);
 
-      this.logger.log(
-        `Invalidated ${keys.length} cache entries matching pattern: ${pattern}`,
-      );
+      this.logger.log(`Invalidated ${keys.length} cache entries matching pattern: ${pattern}`);
       return keys.length;
     } catch (error) {
-      this.logger.error(
-        `Error invalidating by pattern: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error invalidating by pattern: ${error.message}`, error.stack);
       return 0;
     }
   }
@@ -169,15 +212,10 @@ export class MarketCacheService {
         this.redisService.client.del(`${namespace}:stats:total-entries`),
       ]);
 
-      this.logger.log(
-        `Invalidated entire namespace: ${namespace} (${keys.length} keys)`,
-      );
+      this.logger.log(`Invalidated entire namespace: ${namespace} (${keys.length} keys)`);
       return keys.length;
     } catch (error) {
-      this.logger.error(
-        `Error invalidating namespace: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error invalidating namespace: ${error.message}`, error.stack);
       return 0;
     }
   }
@@ -190,18 +228,13 @@ export class MarketCacheService {
       const [hits, misses, totalKeys] = await Promise.all([
         this.redisService.client
           .get(`${namespace}:stats:hits`)
-          .then((v) => parseInt(v as string || '0', 10)),
+          .then((v) => parseInt(v || '0', 10)),
         this.redisService.client
           .get(`${namespace}:stats:misses`)
-          .then((v) => parseInt(v as string || '0', 10)),
+          .then((v) => parseInt(v || '0', 10)),
         this.redisService.client
           .keys(`${namespace}:*`)
-          .then(
-            (keys) =>
-              keys.filter(
-                (k) => !k.includes(':stats:') && !k.includes(':metadata'),
-              ).length,
-          ),
+          .then((keys) => keys.filter((k) => !k.includes(':stats:') && !k.includes(':metadata')).length),
       ]);
 
       const total = hits + misses;
@@ -215,10 +248,7 @@ export class MarketCacheService {
         namespace,
       };
     } catch (error) {
-      this.logger.error(
-        `Error getting cache stats: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error getting cache stats: ${error.message}`, error.stack);
       return {
         hits: 0,
         misses: 0,
@@ -242,10 +272,10 @@ export class MarketCacheService {
       const [totalHits, totalMisses] = await Promise.all([
         this.redisService.client
           .get('market:cache:total-hits')
-          .then((v) => parseInt(v as string || '0', 10)),
+          .then((v) => parseInt(v || '0', 10)),
         this.redisService.client
           .get('market:cache:total-misses')
-          .then((v) => parseInt(v as string || '0', 10)),
+          .then((v) => parseInt(v || '0', 10)),
       ]);
 
       const total = totalHits + totalMisses;
@@ -263,10 +293,7 @@ export class MarketCacheService {
         namespaces,
       };
     } catch (error) {
-      this.logger.error(
-        `Error getting overall stats: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error getting overall stats: ${error.message}`, error.stack);
       return {
         totalHits: 0,
         totalMisses: 0,
@@ -285,10 +312,7 @@ export class MarketCacheService {
       const exists = await this.redisService.client.exists(cacheKey);
       return exists === 1;
     } catch (error) {
-      this.logger.error(
-        `Error checking cache existence: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error checking cache existence: ${error.message}`, error.stack);
       return false;
     }
   }

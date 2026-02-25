@@ -74,15 +74,9 @@ describe('WorkflowService', () => {
     }).compile();
 
     service = module.get<WorkflowService>(WorkflowService);
-    workflowRepository = module.get<Repository<Workflow>>(
-      getRepositoryToken(Workflow),
-    );
-    stepRepository = module.get<Repository<WorkflowStep>>(
-      getRepositoryToken(WorkflowStep),
-    );
-    workflowExecutionService = module.get<WorkflowExecutionService>(
-      WorkflowExecutionService,
-    );
+    workflowRepository = module.get<Repository<Workflow>>(getRepositoryToken(Workflow));
+    stepRepository = module.get<Repository<WorkflowStep>>(getRepositoryToken(WorkflowStep));
+    workflowExecutionService = module.get<WorkflowExecutionService>(WorkflowExecutionService);
   });
 
   afterEach(() => {
@@ -107,9 +101,7 @@ describe('WorkflowService', () => {
         state: WorkflowState.RUNNING,
       };
 
-      mockWorkflowExecutionService.startWorkflow.mockResolvedValue(
-        expectedWorkflow as any,
-      );
+      mockWorkflowExecutionService.startWorkflow.mockResolvedValue(expectedWorkflow as any);
 
       const result = await service.startWorkflow(
         workflowInput.type,
@@ -165,10 +157,7 @@ describe('WorkflowService', () => {
         { id: 'workflow2', userId },
       ];
 
-      mockWorkflowRepository.findAndCount.mockResolvedValue([
-        expectedWorkflows,
-        2,
-      ]);
+      mockWorkflowRepository.findAndCount.mockResolvedValue([expectedWorkflows, 2]);
 
       const result = await service.getUserWorkflows(userId);
 
@@ -215,9 +204,7 @@ describe('WorkflowService', () => {
 
       await service.cancelWorkflow(workflowId);
 
-      expect(mockWorkflowExecutionService.cancelWorkflow).toHaveBeenCalledWith(
-        workflowId,
-      );
+      expect(mockWorkflowExecutionService.cancelWorkflow).toHaveBeenCalledWith(workflowId);
     });
   });
 
@@ -227,28 +214,24 @@ describe('WorkflowService', () => {
 
       await service.retryWorkflow(workflowId);
 
-      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledWith(
-        workflowId,
-      );
+      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledWith(workflowId);
     });
   });
 
   describe('compensateWorkflow', () => {
     it('should compensate a workflow', async () => {
       const workflowId = 'workflow-id';
-
+      
       const mockCompensationService = {
-        compensateWorkflow: jest.fn().mockResolvedValue(undefined),
+        compensateWorkflow: jest.fn().mockResolvedValue(undefined)
       };
-
+      
       // Override the compensation service in the service instance
       (service as any).compensationService = mockCompensationService;
 
       await service.compensateWorkflow(workflowId);
 
-      expect(mockCompensationService.compensateWorkflow).toHaveBeenCalledWith(
-        workflowId,
-      );
+      expect(mockCompensationService.compensateWorkflow).toHaveBeenCalledWith(workflowId);
     });
   });
 
@@ -392,7 +375,10 @@ describe('WorkflowService', () => {
 
   describe('processRetryQueue', () => {
     it('should process retry queue', async () => {
-      const mockWorkflows = [{ id: 'workflow1' }, { id: 'workflow2' }];
+      const mockWorkflows = [
+        { id: 'workflow1' },
+        { id: 'workflow2' },
+      ];
 
       mockWorkflowRepository.find.mockResolvedValue(mockWorkflows as any);
       mockWorkflowExecutionService.retryWorkflow.mockResolvedValue(undefined);
@@ -400,15 +386,9 @@ describe('WorkflowService', () => {
       const result = await service.processRetryQueue();
 
       expect(result).toBe(2);
-      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledTimes(
-        2,
-      );
-      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledWith(
-        'workflow1',
-      );
-      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledWith(
-        'workflow2',
-      );
+      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledTimes(2);
+      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledWith('workflow1');
+      expect(mockWorkflowExecutionService.retryWorkflow).toHaveBeenCalledWith('workflow2');
     });
   });
 });

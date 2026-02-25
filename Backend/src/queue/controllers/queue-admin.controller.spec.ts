@@ -103,15 +103,9 @@ describe('QueueAdminController', () => {
       mockQueueService.getQueueStats.mockResolvedValue({});
 
       // Valid queues should work
-      await expect(
-        controller.getQueueStats('deploy-contract'),
-      ).resolves.toBeDefined();
-      await expect(
-        controller.getQueueStats('process-tts'),
-      ).resolves.toBeDefined();
-      await expect(
-        controller.getQueueStats('index-market-news'),
-      ).resolves.toBeDefined();
+      await expect(controller.getQueueStats('deploy-contract')).resolves.toBeDefined();
+      await expect(controller.getQueueStats('process-tts')).resolves.toBeDefined();
+      await expect(controller.getQueueStats('index-market-news')).resolves.toBeDefined();
     });
   });
 
@@ -233,9 +227,9 @@ describe('QueueAdminController', () => {
     });
 
     it('should throw error for invalid queue name', async () => {
-      await expect(
-        controller.getDeadLetterQueue('invalid-queue'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(controller.getDeadLetterQueue('invalid-queue')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -253,23 +247,26 @@ describe('QueueAdminController', () => {
     });
 
     it('should throw error for invalid queue name', async () => {
-      await expect(
-        controller.requeueJob('invalid-queue', '123'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(controller.requeueJob('invalid-queue', '123')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should propagate service errors', async () => {
       mockQueueService.requeueJob.mockRejectedValue(new Error('Job not found'));
 
-      await expect(
-        controller.requeueJob('deploy-contract', '999'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(controller.requeueJob('deploy-contract', '999')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   describe('requeueFromDLQ', () => {
     it('should requeue items from DLQ', async () => {
-      const mockRequeuedJobs = [{ id: '1' }, { id: '2' }];
+      const mockRequeuedJobs = [
+        { id: '1' },
+        { id: '2' },
+      ];
 
       mockQueueService.requeueFromDLQ.mockResolvedValue(mockRequeuedJobs);
 
@@ -286,10 +283,7 @@ describe('QueueAdminController', () => {
 
       await controller.requeueFromDLQ('deploy-contract', 20);
 
-      expect(mockQueueService.requeueFromDLQ).toHaveBeenCalledWith(
-        'deploy-contract',
-        20,
-      );
+      expect(mockQueueService.requeueFromDLQ).toHaveBeenCalledWith('deploy-contract', 20);
     });
 
     it('should use default limit when not provided', async () => {
@@ -297,10 +291,7 @@ describe('QueueAdminController', () => {
 
       await controller.requeueFromDLQ('deploy-contract');
 
-      expect(mockQueueService.requeueFromDLQ).toHaveBeenCalledWith(
-        'deploy-contract',
-        10,
-      );
+      expect(mockQueueService.requeueFromDLQ).toHaveBeenCalledWith('deploy-contract', 10);
     });
 
     it('should throw error for invalid queue name', async () => {

@@ -33,12 +33,7 @@ describe('AuditController (Admin)', () => {
   it('should allow admin to get logs', async () => {
     const logsMock = {
       data: [
-        {
-          action_type: 'USER_CREATED',
-          actor_id: '1',
-          entity_id: '1',
-          metadata: {},
-        },
+        { action_type: 'USER_CREATED', actor_id: '1', entity_id: '1', metadata: {} },
       ],
       total: 1,
     };
@@ -48,13 +43,11 @@ describe('AuditController (Admin)', () => {
 
     const result = await controller.getLogs(1, 10);
     expect(result).toEqual(logsMock);
-    expect(auditService.getLogs).toHaveBeenCalledWith(1, 10, {
-      action_type: undefined,
-      actor_id: undefined,
-      entity_id: undefined,
-      from: undefined,
-      to: undefined,
-    });
+    expect(auditService.getLogs).toHaveBeenCalledWith(
+      1,
+      10,
+      { action_type: undefined, actor_id: undefined, entity_id: undefined, from: undefined, to: undefined },
+    );
   });
 
   it('should throw ForbiddenException for non-admin', async () => {
