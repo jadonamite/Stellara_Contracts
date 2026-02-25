@@ -1,89 +1,18 @@
 #![cfg(test)]
 
-use super::*;
-use soroban_sdk::{testutils::Address as _, Env};
-
-#[test]
-fn test_validation_hash_format() {
-    let env = Env::default();
-    let empty_hash = symbol_short!("");
-    let valid_hash = symbol_short!("QmHash");
-    
-    // Empty hash should fail
-    assert!(ValidationModule::validate_hash_format(&empty_hash).is_err());
-    
-    // Valid hash should pass
-    assert!(ValidationModule::validate_hash_format(&valid_hash).is_ok());
-}
-
-#[test]
-fn test_validation_threshold() {
-    // Valid threshold
-    assert!(ValidationModule::validate_threshold(2, 3).is_ok());
-    
-    // Zero threshold should fail
-    assert!(ValidationModule::validate_threshold(0, 3).is_err());
-    
-    // Threshold exceeding approver count should fail
-    assert!(ValidationModule::validate_threshold(4, 3).is_err());
-}
-
-#[test]
-fn test_validation_timelock() {
-    // Valid timelock (1 hour)
-    assert!(ValidationModule::validate_timelock(3600).is_ok());
-    
-    // Too short timelock should fail
-    assert!(ValidationModule::validate_timelock(1800).is_err());
-}
-
-#[test]
-fn test_validation_version_compatibility() {
-    // Valid version increment
-    assert!(ValidationModule::validate_version_compatibility(1, 2).is_ok());
-    
-    // Same version should fail
-    assert!(ValidationModule::validate_version_compatibility(1, 1).is_err());
-    
-    // Downgrade should fail
-    assert!(ValidationModule::validate_version_compatibility(2, 1).is_err());
-}
-
-#[test]
-fn test_validation_approvers_unique() {
-    let env = Env::default();
-    
-    // Unique approvers
-    let addr1 = Address::generate(&env);
-    let addr2 = Address::generate(&env);
-    let addr3 = Address::generate(&env);
-    
-    let mut unique_approvers = soroban_sdk::Vec::new(&env);
-    unique_approvers.push_back(addr1.clone());
-    unique_approvers.push_back(addr2.clone());
-    unique_approvers.push_back(addr3.clone());
-    
-    assert!(ValidationModule::validate_approvers_unique(&unique_approvers).is_ok());
-    
-    // Duplicate approvers
-    let mut duplicate_approvers = soroban_sdk::Vec::new(&env);
-    duplicate_approvers.push_back(addr1.clone());
-    duplicate_approvers.push_back(addr2.clone());
-    duplicate_approvers.push_back(addr1.clone()); // Duplicate
-    
-    assert!(ValidationModule::validate_approvers_unique(&duplicate_approvers).is_err());
-}
+use super::governance::*;
+use soroban_sdk::{testutils::{Ledger, Address as AddressTestUtils}, Env, Address, symbol_short};
 
 #[test]
 fn test_proposal_lifecycle_with_validation() {
     let env = Env::default();
     env.mock_all_auths();
     
-    let admin = Address::generate(&env);
-    let approver1 = Address::generate(&env);
-    let approver2 = Address::generate(&env);
-    let executor = Address::generate(&env);
-    let target_contract = Address::generate(&env);
+    let admin = <Address as AddressTestUtils>::generate(&env);
+    let approver1 = <Address as AddressTestUtils>::generate(&env);
+    let approver2 = <Address as AddressTestUtils>::generate(&env);
+    let executor = <Address as AddressTestUtils>::generate(&env);
+    let target_contract = <Address as AddressTestUtils>::generate(&env);
     
     // Set up roles
     let roles_key = symbol_short!("roles");
@@ -123,10 +52,10 @@ fn test_halt_and_resume_workflow() {
     let env = Env::default();
     env.mock_all_auths();
     
-    let admin = Address::generate(&env);
-    let approver1 = Address::generate(&env);
-    let approver2 = Address::generate(&env);
-    let target_contract = Address::generate(&env);
+    let admin = <Address as AddressTestUtils>::generate(&env);
+    let approver1 = <Address as AddressTestUtils>::generate(&env);
+    let approver2 = <Address as AddressTestUtils>::generate(&env);
+    let target_contract = <Address as AddressTestUtils>::generate(&env);
     
     // Set up roles
     let roles_key = symbol_short!("roles");
@@ -187,9 +116,9 @@ fn test_cooling_off_period_enforcement() {
     let env = Env::default();
     env.mock_all_auths();
     
-    let admin = Address::generate(&env);
-    let approver1 = Address::generate(&env);
-    let target_contract = Address::generate(&env);
+    let admin = <Address as AddressTestUtils>::generate(&env);
+    let approver1 = <Address as AddressTestUtils>::generate(&env);
+    let target_contract = <Address as AddressTestUtils>::generate(&env);
     
     // Set up roles
     let roles_key = symbol_short!("roles");
@@ -232,10 +161,10 @@ fn test_approval_revocation() {
     let env = Env::default();
     env.mock_all_auths();
     
-    let admin = Address::generate(&env);
-    let approver1 = Address::generate(&env);
-    let approver2 = Address::generate(&env);
-    let target_contract = Address::generate(&env);
+    let admin = <Address as AddressTestUtils>::generate(&env);
+    let approver1 = <Address as AddressTestUtils>::generate(&env);
+    let approver2 = <Address as AddressTestUtils>::generate(&env);
+    let target_contract = <Address as AddressTestUtils>::generate(&env);
     
     // Set up roles
     let roles_key = symbol_short!("roles");

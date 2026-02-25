@@ -133,7 +133,7 @@
   - **Property 16: Proposal history completeness**
   - **Validates: Requirements 6.5**
 
-- [ ] 10. Update documentation
+- [x] 10. Update documentation
   - Update UPGRADEABILITY.md with new features
   - Update GOVERNANCE_GUIDE.md with new workflows
   - Add examples for halt, resume, and revoke operations
@@ -141,7 +141,7 @@
   - Add troubleshooting section for new features
   - _Requirements: All_
 
-- [ ] 11. Final checkpoint - Build and test
+- [x] 11. Final checkpoint - Build and test
   - Run `cargo build` to ensure compilation
   - Run `cargo test` to ensure all tests pass
   - Verify no regressions in existing functionality
