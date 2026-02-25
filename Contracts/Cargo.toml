@@ -1,21 +1,13 @@
 [workspace]
-resolver = "2"
 members = [
-    "shared",
     "contracts/token",
-    "contracts/governance_token",
-    "contracts/staking", 
     "contracts/trading",
+    "contracts/social_rewards",
+    "contracts/academy",
+    "contracts/academy-rewards",
+    "shared",
 ]
-
-[workspace.dependencies]
-soroban-sdk = "20.0.0"
-
-[workspace.metadata.clippy]
-# Additional clippy configuration can go here
-
-[workspace.metadata.husky]
-hooks = ["pre-commit", "pre-push"]
+resolver = "2"
 
 [profile.release]
 opt-level = "z"

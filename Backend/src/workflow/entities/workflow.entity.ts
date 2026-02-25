@@ -24,7 +24,8 @@ export class Workflow {
   idempotencyKey: string;
 
   @Column({
-    type: 'varchar',
+    type: 'enum',
+    enum: WorkflowType,
   })
   type: WorkflowType;
 
@@ -41,13 +42,13 @@ export class Workflow {
   @Column({ nullable: true })
   walletAddress?: string;
 
-  @Column('text')
+  @Column('jsonb')
   input: Record<string, any>;
 
-  @Column('text', { nullable: true })
+  @Column('jsonb', { nullable: true })
   output?: Record<string, any>;
 
-  @Column('text', { nullable: true })
+  @Column('jsonb', { nullable: true })
   context?: Record<string, any>;
 
   @Column({ default: 0 })
@@ -89,6 +90,6 @@ export class Workflow {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => WorkflowStep, (step) => step.workflow, { cascade: true })
+  @OneToMany(() => WorkflowStep, step => step.workflow, { cascade: true })
   steps: WorkflowStep[];
 }

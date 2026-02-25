@@ -21,8 +21,7 @@ export interface LlmResponse {
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
 
-  private readonly FALLBACK_MESSAGE =
-    "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.";
+  private readonly FALLBACK_MESSAGE = "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.";
   private readonly DEFAULT_MODEL = 'gpt-3.5-turbo';
 
   constructor(
@@ -51,10 +50,7 @@ export class LlmService {
 
     try {
       // 1. Check quotas and rate limits
-      const quotaStatus = await this.quotaService.enforceQuota(
-        userId,
-        sessionId,
-      );
+      const quotaStatus = await this.quotaService.enforceQuota(userId, sessionId);
 
       // 2. Try cache first
       if (useCache) {
@@ -93,14 +89,8 @@ export class LlmService {
       if (error instanceof HttpException) {
         throw error;
       }
-      this.logger.error(
-        `Unexpected error in LLM pipeline: ${error.message}`,
-        error.stack,
-      );
-      throw new HttpException(
-        'LLM service error',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.logger.error(`Unexpected error in LLM pipeline: ${error.message}`, error.stack);
+      throw new HttpException('LLM service error', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -155,12 +145,7 @@ export class LlmService {
     sessionId: string,
     quotaConfig?: Partial<QuotaConfig>,
   ): Promise<QuotaStatus> {
-    return this.quotaService.getQuotaStatus(
-      userId,
-      sessionId,
-      new Date(),
-      quotaConfig,
-    );
+    return this.quotaService.getQuotaStatus(userId, sessionId, new Date(), quotaConfig);
   }
 
   /**
@@ -195,12 +180,7 @@ export class LlmService {
    * Warms cache with common prompts
    */
   async warmCache(
-    entries: Array<{
-      prompt: string;
-      response: string;
-      model: string;
-      ttl?: number;
-    }>,
+    entries: Array<{ prompt: string; response: string; model: string; ttl?: number }>,
   ): Promise<number> {
     return this.cacheService.warmCache(entries);
   }
@@ -216,16 +196,14 @@ export class LlmService {
       }
 
       // Simulate network latency
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Mock responses
       const responses = [
-        'I understand your question about ' +
-          prompt +
-          '. Let me help you with that.',
+        "I understand your question about " + prompt + ". Let me help you with that.",
         "That's an interesting point. Based on what you've said, I think the best approach would be to consider multiple factors.",
         "I can definitely help you with that. Here's what I recommend based on your situation.",
-        'Thanks for sharing that with me. Let me provide you with some guidance on this topic.',
+        "Thanks for sharing that with me. Let me provide you with some guidance on this topic.",
       ];
 
       return responses[Math.floor(Math.random() * responses.length)];

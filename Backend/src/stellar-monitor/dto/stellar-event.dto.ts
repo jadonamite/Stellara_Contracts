@@ -1,10 +1,4 @@
-import {
-  IsEnum,
-  IsInt,
-  IsDateString,
-  IsString,
-  ValidateNested,
-} from 'class-validator';
+import { IsEnum, IsInt, IsDateString, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EventType } from '../types/stellar.types';
 

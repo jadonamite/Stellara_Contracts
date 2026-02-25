@@ -15,9 +15,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
       with:
+        toolchain: stable
+        override: true
         components: rustfmt, clippy
         
     - name: Install Soroban CLI
@@ -49,8 +51,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
       
     - name: Install Soroban CLI
       run: |
@@ -76,10 +81,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
       with:
-        components: rust-src  # Required for cargo llvm-cov
+        toolchain: stable
+        override: true
+        components: rust-src
         
     - name: Install cargo-llvm-cov
       uses: taiki-e/install-action@cargo-llvm-cov

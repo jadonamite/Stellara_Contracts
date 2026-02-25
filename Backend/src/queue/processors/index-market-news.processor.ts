@@ -24,9 +24,7 @@ export class IndexMarketNewsProcessor {
   private readonly logger = new Logger(IndexMarketNewsProcessor.name);
 
   @Process()
-  async handleIndexMarketNews(
-    job: Job<IndexMarketNewsData>,
-  ): Promise<JobResult> {
+  async handleIndexMarketNews(job: Job<IndexMarketNewsData>): Promise<JobResult> {
     const { source, startDate, endDate, limit = 100 } = job.data;
 
     this.logger.log(
@@ -72,10 +70,7 @@ export class IndexMarketNewsProcessor {
         },
       };
     } catch (error) {
-      this.logger.error(
-        `Failed to index market news: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to index market news: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -96,9 +91,7 @@ export class IndexMarketNewsProcessor {
             title: `Market News ${i + 1} from ${source}`,
             content: `This is a sample news article about market trends and opportunities from ${source}.`,
             source,
-            publishedAt: new Date(
-              Date.now() - Math.random() * 86400000,
-            ).toISOString(),
+            publishedAt: new Date(Date.now() - Math.random() * 86400000).toISOString(),
             tags: ['market', 'crypto', source.toLowerCase()],
           });
         }

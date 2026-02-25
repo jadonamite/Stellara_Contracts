@@ -53,15 +53,13 @@ export class VoiceProcessingService {
 
       // Check if user is approaching quota limit
       const quotaStatus = llmResponse.quotaStatus;
-      const quotaPercentage = quotaStatus
-        ? quotaStatus.monthlyUsage / quotaStatus.monthlyLimit
-        : 0;
+      const quotaPercentage = quotaStatus ? quotaStatus.monthlyUsage / quotaStatus.monthlyLimit : 0;
       const shouldWarnQuota = quotaPercentage > 0.9; // Warn at 90%
 
       // Log important metrics
       this.logger.debug(
         `User ${userId} - Cache: ${llmResponse.cached ? 'HIT' : 'MISS'} | ` +
-          `Monthly: ${quotaStatus?.monthlyUsage ?? 0}/${quotaStatus?.monthlyLimit ?? 0}`,
+        `Monthly: ${quotaStatus?.monthlyUsage ?? 0}/${quotaStatus?.monthlyLimit ?? 0}`,
       );
 
       return {
@@ -75,25 +73,18 @@ export class VoiceProcessingService {
         // Quota exceeded - inform user
         this.logger.warn(`User ${userId} exceeded quota: ${error.message}`);
         return {
-          response:
-            `I apologize, but you've reached your usage limit for this month. ` +
-            `Please try again next month or contact support for a quota increase.`,
+          response: `I apologize, but you've reached your usage limit for this month. ` +
+                   `Please try again next month or contact support for a quota increase.`,
           cached: false,
-          quotaStatus: await this.quotaService.getQuotaStatus(
-            userId,
-            sessionId,
-          ),
+          quotaStatus: await this.quotaService.getQuotaStatus(userId, sessionId),
           shouldNotifyQuotaWarning: false,
         };
       }
 
       // For any other error, use fallback response
-      this.logger.error(
-        `Error processing prompt for user ${userId}: ${error.message}`,
-      );
+      this.logger.error(`Error processing prompt for user ${userId}: ${error.message}`);
       return {
-        response:
-          "I'm having trouble processing your request right now. Please try again.",
+        response: "I'm having trouble processing your request right now. Please try again.",
         cached: false,
         quotaStatus: await this.quotaService.getQuotaStatus(userId, sessionId),
         shouldNotifyQuotaWarning: false,
@@ -141,10 +132,7 @@ export class VoiceProcessingService {
   /**
    * Check if user can make another request
    */
-  async canUserMakeRequest(
-    userId: string,
-    sessionId: string,
-  ): Promise<boolean> {
+  async canUserMakeRequest(userId: string, sessionId: string): Promise<boolean> {
     try {
       await this.quotaService.enforceQuota(userId, sessionId);
       return true;
@@ -207,7 +195,7 @@ export class VoiceProcessingService {
       {
         prompt: 'Help',
         response:
-          "Hello! I'm here to help. You can ask me questions about blockchain, " +
+          'Hello! I\'m here to help. You can ask me questions about blockchain, ' +
           'wallets, transactions, and more. What would you like to know?',
         model: 'gpt-3.5-turbo',
         ttl: 86400,
@@ -240,19 +228,13 @@ export class VoiceProcessingService {
   /**
    * Admin function: Reset user quota
    */
-  async grantQuotaException(
-    userId: string,
-    additionalRequests: number,
-  ): Promise<void> {
+  async grantQuotaException(userId: string, additionalRequests: number): Promise<void> {
     const current = await this.quotaService.getUserMonthlyQuota(userId);
-    await this.quotaService.setUserMonthlyQuota(
-      userId,
-      current + additionalRequests,
-    );
+    await this.quotaService.setUserMonthlyQuota(userId, current + additionalRequests);
 
     this.logger.log(
       `Granted ${additionalRequests} additional requests to user ${userId}. ` +
-        `New total: ${current + additionalRequests}`,
+      `New total: ${current + additionalRequests}`,
     );
   }
 
@@ -272,8 +254,8 @@ export class VoiceProcessingService {
 
       this.logger.log(
         `Cache maintenance: pruned ${pruned} entries | ` +
-          `Total entries: ${stats.totalEntries} | ` +
-          `Hit rate: ${(stats.hitRate * 100).toFixed(2)}%`,
+        `Total entries: ${stats.totalEntries} | ` +
+        `Hit rate: ${(stats.hitRate * 100).toFixed(2)}%`,
       );
     } catch (error) {
       this.logger.error(`Cache maintenance failed: ${error.message}`);
@@ -285,7 +267,9 @@ export class VoiceProcessingService {
  * Usage in Voice Gateway
  */
 export class VoiceGatewayIntegration {
-  constructor(private readonly voiceProcessing: VoiceProcessingService) {}
+  constructor(
+    private readonly voiceProcessing: VoiceProcessingService,
+  ) {}
 
   /**
    * Handle incoming voice message
@@ -320,8 +304,7 @@ export class VoiceGatewayIntegration {
       message: result.response,
       cached: result.cached,
       quota: {
-        remaining:
-          result.quotaStatus.monthlyLimit - result.quotaStatus.monthlyUsage,
+        remaining: result.quotaStatus.monthlyLimit - result.quotaStatus.monthlyUsage,
         total: result.quotaStatus.monthlyLimit,
       },
       warning: result.shouldNotifyQuotaWarning

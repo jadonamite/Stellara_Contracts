@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WalletBinding } from '../entities/wallet-binding.entity';
@@ -20,21 +15,17 @@ export class WalletService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async verifySignature(
-    publicKey: string,
-    signature: string,
-    message: string,
-  ): Promise<boolean> {
+  async verifySignature(publicKey: string, signature: string, message: string): Promise<boolean> {
     try {
       // Decode the Stellar public key to raw bytes
       const publicKeyBytes = StrKey.decodeEd25519PublicKey(publicKey);
-
+      
       // Decode the signature from base64
       const signatureBytes = Buffer.from(signature, 'base64');
-
+      
       // Convert message to bytes
       const messageBytes = Buffer.from(message, 'utf-8');
-
+      
       // Verify signature using tweetnacl
       const isValid = nacl.sign.detached.verify(
         messageBytes,
@@ -58,11 +49,7 @@ export class WalletService {
     return binding?.user || null;
   }
 
-  async bindWalletToUser(
-    publicKey: string,
-    userId: string,
-    isPrimary: boolean = false,
-  ): Promise<WalletBinding> {
+  async bindWalletToUser(publicKey: string, userId: string, isPrimary: boolean = false): Promise<WalletBinding> {
     // Check if wallet is already bound
     const existingBinding = await this.walletBindingRepository.findOne({
       where: { publicKey },
@@ -105,9 +92,7 @@ export class WalletService {
     });
 
     if (userWalletCount === 1) {
-      throw new BadRequestException(
-        'Cannot unbind the only wallet. Account must have at least one wallet.',
-      );
+      throw new BadRequestException('Cannot unbind the only wallet. Account must have at least one wallet.');
     }
 
     await this.walletBindingRepository.remove(binding);

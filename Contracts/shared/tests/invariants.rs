@@ -12,7 +12,6 @@ enum Action {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(32))]
 
     /// -----------------------------------------
     /// Stateful invariant: supply + balances safe
@@ -25,7 +24,7 @@ proptest! {
                 (1i128..10_000i128).prop_map(Action::Transfer),
                 (1i128..10_000i128).prop_map(Action::Mint),
             ],
-            1..20
+            1..50
         )
     ) {
         let env = Env::default();
@@ -148,7 +147,7 @@ proptest! {
     /// --------------------------------
     #[test]
     fn ownership_invariant(
-        _supply in 1_000i128..1_000_000i128,
+        supply in 1_000i128..1_000_000i128,
         mint_amount in 1i128..100_000i128,
     ) {
         let env = Env::default();

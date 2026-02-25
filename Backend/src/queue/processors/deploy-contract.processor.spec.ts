@@ -45,16 +45,11 @@ describe('DeployContractProcessor', () => {
     });
 
     it('should throw error if required fields missing', async () => {
-      mockJob.data = {
-        contractName: '',
-        contractCode: 'code',
-        network: 'testnet',
-        initializer: 'init',
-      };
+      mockJob.data = { contractName: '', contractCode: 'code', network: 'testnet', initializer: 'init' };
 
-      await expect(
-        processor.handleDeployContract(mockJob as any),
-      ).rejects.toThrow('Missing required fields');
+      await expect(processor.handleDeployContract(mockJob as any)).rejects.toThrow(
+        'Missing required fields',
+      );
     });
 
     it('should throw error if contract code is empty', async () => {
@@ -65,9 +60,7 @@ describe('DeployContractProcessor', () => {
         initializer: 'init-func',
       };
 
-      await expect(
-        processor.handleDeployContract(mockJob as any),
-      ).rejects.toThrow();
+      await expect(processor.handleDeployContract(mockJob as any)).rejects.toThrow();
     });
 
     it('should include network in result', async () => {
