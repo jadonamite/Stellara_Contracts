@@ -8,6 +8,7 @@ import { User } from '../entities/user.entity';
 import { randomUUID } from 'crypto';
 import { AuditService } from '../../audit/audit.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { AuditEvent } from '../../audit/audit.event';
 
 export interface JwtPayload {
   sub: string;
@@ -28,7 +29,10 @@ export class JwtAuthService {
     private readonly auditService: AuditService,
   ) {}
 
-  async generateAccessToken(userId: string, walletId?: string): Promise<string> {
+  async generateAccessToken(
+    userId: string,
+    walletId?: string,
+  ): Promise<string> {
     const payload: JwtPayload = {
       sub: userId,
       walletId,
@@ -121,7 +125,9 @@ export class JwtAuthService {
 
     // Issue new token pair
     const accessToken = await this.generateAccessToken(tokenRecord.userId);
-    const newRefreshTokenData = await this.generateRefreshToken(tokenRecord.userId);
+    const newRefreshTokenData = await this.generateRefreshToken(
+      tokenRecord.userId,
+    );
 
     await this.auditService.logAction(
       'ACCESS_TOKEN_REFRESHED',

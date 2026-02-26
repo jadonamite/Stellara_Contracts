@@ -19,6 +19,7 @@ import { AuthModule } from './auth/auth.module';
 import { MarketDataModule } from './market-data/market-data.module';
 // import { AnalyticsModule } from './analytics/analytics.module';   // TODO: module not yet created
 import { PersonalizationModule } from './personalization/personalization.module';
+import { GraphqlModule } from './graphql/graphql.module';
 
 import { RolesGuard } from './guards/roles.guard';
 
@@ -35,6 +36,7 @@ import { AuditLog } from './audit/audit.entity';
 // import { Consent } from './gdpr/entities/consent.entity';         // TODO: module not yet created
 import { VoiceJob } from './voice/entities/voice-job.entity';
 import { ThrottleModule } from './throttle/throttle.module';
+import { ObservabilityModule } from './observability/observability.module';
 // import { TenantModule } from './tenancy/tenant.module';                       // TODO: module not yet created
 // import { Tenant } from './tenancy/entities/tenant.entity';                    // TODO: module not yet created
 // import { TenantConfig } from './tenancy/entities/tenant-config.entity';       // TODO: module not yet created
@@ -50,7 +52,6 @@ import { UserEvent } from './personalization/entities/user-event.entity';
 import { PersonalizationRule } from './personalization/entities/personalization-rule.entity';
 import { Experiment } from './personalization/entities/experiment.entity';
 import { ExperimentAssignment } from './personalization/entities/experiment-assignment.entity';
-
 
 @Module({
   imports: [
@@ -97,13 +98,15 @@ import { ExperimentAssignment } from './personalization/entities/experiment-assi
         };
 
         if (dbType === 'sqlite') {
-          baseConfig.database = configService.get('DB_DATABASE') || './stellar-events.db';
+          baseConfig.database =
+            configService.get('DB_DATABASE') || './stellar-events.db';
         } else {
           baseConfig.host = configService.get('DB_HOST') || 'localhost';
           baseConfig.port = configService.get('DB_PORT') || 5432;
           baseConfig.username = configService.get('DB_USERNAME') || 'postgres';
           baseConfig.password = configService.get('DB_PASSWORD') || 'password';
-          baseConfig.database = configService.get('DB_DATABASE') || 'stellara_workflows';
+          baseConfig.database =
+            configService.get('DB_DATABASE') || 'stellara_workflows';
         }
 
         return baseConfig;
@@ -120,11 +123,13 @@ import { ExperimentAssignment } from './personalization/entities/experiment-assi
     AuditModule,
     // GdprModule,       // TODO: module not yet created
     ThrottleModule,
+    ObservabilityModule,
     // TenantModule,     // TODO: module not yet created
     // AnalyticsModule,  // TODO: module not yet created
     PersonalizationModule,
     // BlockchainModule, // TODO: module not yet created
     WebsocketModule,
+    GraphqlModule,
   ],
 
   controllers: [AppController],

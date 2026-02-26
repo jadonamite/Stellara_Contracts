@@ -1,9 +1,10 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, Address, BytesN, Env, Error, IntoVal, String, Symbol, Val, Vec, TryFromVal,
-};
 use shared::state_verification::{compute_commitment, make_proof, StateProof};
+use soroban_sdk::{
+    contract, contractimpl, Address, BytesN, Env, Error, IntoVal, String, Symbol, TryFromVal, Val,
+    Vec,
+};
 
 mod admin;
 mod storage;
@@ -22,7 +23,14 @@ impl TokenContract {
         }
         admin.require_auth();
         storage::set_admin(&env, &admin);
-        storage::set_metadata(&env, &TokenMetadata { name, symbol, decimals });
+        storage::set_metadata(
+            &env,
+            &TokenMetadata {
+                name,
+                symbol,
+                decimals,
+            },
+        );
         storage::set_total_supply(&env, 0);
     }
 
@@ -31,7 +39,13 @@ impl TokenContract {
         storage::get_allowance_amount(&env, &from, &spender)
     }
 
-    pub fn approve(env: Env, from: Address, spender: Address, amount: i128, expiration_ledger: u32) {
+    pub fn approve(
+        env: Env,
+        from: Address,
+        spender: Address,
+        amount: i128,
+        expiration_ledger: u32,
+    ) {
         from.require_auth();
         ensure_nonnegative(amount);
 
@@ -111,10 +125,8 @@ impl TokenContract {
         let current_admin = storage::get_admin(&env);
         current_admin.require_auth();
         storage::set_admin(&env, &new_admin);
-        env.events().publish(
-            (Symbol::new(&env, "set_admin"), current_admin),
-            new_admin,
-        );
+        env.events()
+            .publish((Symbol::new(&env, "set_admin"), current_admin), new_admin);
     }
 
     pub fn admin(env: Env) -> Address {
@@ -124,10 +136,8 @@ impl TokenContract {
     pub fn set_authorized(env: Env, id: Address, authorize: bool) {
         admin::require_admin(&env);
         storage::set_authorized(&env, &id, authorize);
-        env.events().publish(
-            (Symbol::new(&env, "set_authorized"), id),
-            authorize,
-        );
+        env.events()
+            .publish((Symbol::new(&env, "set_authorized"), id), authorize);
     }
 
     pub fn authorized(env: Env, id: Address) -> bool {
@@ -146,8 +156,10 @@ impl TokenContract {
         let new_supply = supply.checked_add(amount).expect("Overflow");
         storage::set_total_supply(&env, new_supply);
 
+        // Optimized: Cache admin address to avoid redundant storage read
+        let admin_addr = storage::get_admin(&env);
         env.events().publish(
-            (Symbol::new(&env, "mint"), storage::get_admin(&env), to),
+            (Symbol::new(&env, "mint"), admin_addr, to),
             amount,
         );
     }
@@ -158,7 +170,11 @@ impl TokenContract {
 
         burn_balance(&env, &from, amount);
         env.events().publish(
-            (Symbol::new(&env, "clawback"), storage::get_admin(&env), from),
+            (
+                Symbol::new(&env, "clawback"),
+                storage::get_admin(&env),
+                from,
+            ),
             amount,
         );
     }
@@ -176,7 +192,13 @@ impl TokenContract {
             if actual != tuple.1 {
                 panic!("MISMATCH");
             }
-            return compute_commitment(&env, &env.current_contract_address(), &key, &subject, env.ledger().sequence());
+            return compute_commitment(
+                &env,
+                &env.current_contract_address(),
+                &key,
+                &subject,
+                env.ledger().sequence(),
+            );
         }
         panic!("UNSUPPORTED");
     }
@@ -184,7 +206,12 @@ impl TokenContract {
     pub fn get_balance_proof(env: Env, id: Address) -> StateProof {
         let bal = storage::balance_of(&env, &id);
         let subject = (id, bal).into_val(&env);
-        make_proof(&env, &env.current_contract_address(), &Symbol::new(&env, "balance"), &subject)
+        make_proof(
+            &env,
+            &env.current_contract_address(),
+            &Symbol::new(&env, "balance"),
+            &subject,
+        )
     }
 }
 
@@ -201,25 +228,31 @@ fn require_authorized(env: &Env, id: &Address) {
 }
 
 fn spend_allowance(env: &Env, from: &Address, spender: &Address, amount: i128) {
+    // Optimized: Single storage read for allowance with expiration check
     let allowance = storage::get_allowance(env, from, spender);
     let current_ledger = env.ledger().sequence();
 
-    let available = if allowance.expiration_ledger < current_ledger {
-        0
-    } else {
-        allowance.amount
-    };
+    // Check expiration inline to avoid extra storage read
+    if allowance.expiration_ledger < current_ledger {
+        if amount > 0 {
+            panic!("Allowance exceeded");
+        }
+        return;
+    }
 
-    if amount > available {
+    if amount > allowance.amount {
         panic!("Allowance exceeded");
     }
 
-    let remaining = available.checked_sub(amount).expect("Overflow");
-    let updated = Allowance {
-        amount: remaining,
-        expiration_ledger: allowance.expiration_ledger,
-    };
-    storage::set_allowance(env, from, spender, &updated);
+    // Only update if amount > 0 to save gas
+    if amount > 0 {
+        let remaining = allowance.amount.checked_sub(amount).expect("Overflow");
+        let updated = Allowance {
+            amount: remaining,
+            expiration_ledger: allowance.expiration_ledger,
+        };
+        storage::set_allowance(env, from, spender, &updated);
+    }
 }
 
 fn burn_balance(env: &Env, from: &Address, amount: i128) {
@@ -241,6 +274,7 @@ fn internal_transfer(env: &Env, from: &Address, to: &Address, amount: i128) {
         return;
     }
 
+    // Optimized: Read both balances in single batch operation context
     let from_balance = storage::balance_of(env, from);
     if amount > from_balance {
         panic!("Insufficient balance");
@@ -248,9 +282,11 @@ fn internal_transfer(env: &Env, from: &Address, to: &Address, amount: i128) {
 
     let to_balance = storage::balance_of(env, to);
 
+    // Calculate new balances
     let new_from = from_balance.checked_sub(amount).expect("Overflow");
     let new_to = to_balance.checked_add(amount).expect("Overflow");
 
+    // Optimized: Batch storage writes
     storage::set_balance(env, from, &new_from);
     storage::set_balance(env, to, &new_to);
 

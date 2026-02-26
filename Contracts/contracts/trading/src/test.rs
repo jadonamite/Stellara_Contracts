@@ -3,9 +3,12 @@
 extern crate std;
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, testutils::Ledger as _, testutils::Events, token, Address, Env, Symbol, Vec, TryIntoVal};
-use shared::governance::ProposalStatus;
 use shared::fees::FeeError;
+use shared::governance::ProposalStatus;
+use soroban_sdk::{
+    testutils::Address as _, testutils::Events, testutils::Ledger as _, token, Address, Env,
+    Symbol, TryIntoVal, Vec,
+};
 use std::sync::Mutex;
 
 static TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -28,7 +31,12 @@ fn setup_env() -> (Env, Address, Address, Address, Address) {
     (env, admin, approver, executor, contract_id)
 }
 
-fn init_contract(client: &UpgradeableTradingContractClient, admin: &Address, approvers: Vec<Address>, executor: &Address) {
+fn init_contract(
+    client: &UpgradeableTradingContractClient,
+    admin: &Address,
+    approvers: Vec<Address>,
+    executor: &Address,
+) {
     client.init(admin, &approvers, executor);
 }
 
@@ -182,13 +190,19 @@ fn test_pause_sets_flag() {
 
     client.pause(&admin);
     let paused = env.as_contract(&contract_id, || {
-        env.storage().persistent().get(&symbol_short!("pause")).unwrap_or(false)
+        env.storage()
+            .persistent()
+            .get(&symbol_short!("pause"))
+            .unwrap_or(false)
     });
     assert!(paused);
 
     client.unpause(&admin);
     let paused = env.as_contract(&contract_id, || {
-        env.storage().persistent().get(&symbol_short!("pause")).unwrap_or(false)
+        env.storage()
+            .persistent()
+            .get(&symbol_short!("pause"))
+            .unwrap_or(false)
     });
     assert!(!paused);
 }
@@ -246,17 +260,21 @@ fn test_upgrade_proposal_flow_and_errors() {
     let proposal = client.get_upgrade_proposal(&proposal_id);
     assert_eq!(proposal.status, ProposalStatus::Pending);
 
+    // Advance time past cooling-off period
+    set_timestamp(&env, 1000 + 3601);
+
     client.approve_upgrade(&proposal_id, &approver);
     let duplicate = client.try_approve_upgrade(&proposal_id, &approver);
     assert_eq!(duplicate, Err(Ok(TradeError::Unauthorized)));
     let proposal = client.get_upgrade_proposal(&proposal_id);
     assert_eq!(proposal.status, ProposalStatus::Approved);
 
-    // Execute too early
+    // Execute too early (before timelock expires)
     let execute_err = client.try_execute_upgrade(&proposal_id, &executor);
     assert_eq!(execute_err, Err(Ok(TradeError::Unauthorized)));
 
-    set_timestamp(&env, 1000 + 3601);
+    // Advance time past timelock
+    set_timestamp(&env, 1000 + 3601 + 3600);
     client.execute_upgrade(&proposal_id, &executor);
 
     let proposal = client.get_upgrade_proposal(&proposal_id);
@@ -331,7 +349,11 @@ fn test_trade_emits_events() {
 
     // Should have at least 2 events: fee_collected and trade_executed
     // (plus any token transfer events)
-    assert!(events.len() >= 2, "Expected at least 2 events, got {}", events.len());
+    assert!(
+        events.len() >= 2,
+        "Expected at least 2 events, got {}",
+        events.len()
+    );
 
     // Check for trade event topic
     let has_trade_event = events.iter().any(|(_, topics, _)| {
@@ -463,6 +485,9 @@ fn test_governance_approval_emits_event() {
         &3600,
     );
 
+    // Advance time past cooling-off period
+    set_timestamp(&env, 1000 + 3601);
+
     client.approve_upgrade(&proposal_id, &approver);
 
     let events = env.events().all();
@@ -498,8 +523,12 @@ fn test_governance_execution_emits_event() {
         &3600,
     );
 
-    client.approve_upgrade(&proposal_id, &approver);
+    // Advance time past cooling-off period
     set_timestamp(&env, 1000 + 3601);
+    client.approve_upgrade(&proposal_id, &approver);
+
+    // Advance time past timelock
+    set_timestamp(&env, 1000 + 3601 + 3600);
     client.execute_upgrade(&proposal_id, &executor);
 
     let events = env.events().all();

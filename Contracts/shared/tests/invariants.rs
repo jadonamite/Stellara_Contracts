@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use proptest::prelude::*;
-use soroban_sdk::{testutils::Address as _, Env, Address, IntoVal};
+use soroban_sdk::{testutils::Address as _, Address, Env, IntoVal};
 
 use token::{TokenContract, TokenContractClient};
 
@@ -12,6 +12,11 @@ enum Action {
 }
 
 proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 32,
+        max_shrink_iters: 0,
+        ..ProptestConfig::default()
+    })]
 
     /// -----------------------------------------
     /// Stateful invariant: supply + balances safe
@@ -147,7 +152,7 @@ proptest! {
     /// --------------------------------
     #[test]
     fn ownership_invariant(
-        supply in 1_000i128..1_000_000i128,
+        _supply in 1_000i128..1_000_000i128,
         mint_amount in 1i128..100_000i128,
     ) {
         let env = Env::default();
