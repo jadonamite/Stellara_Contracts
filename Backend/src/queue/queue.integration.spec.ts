@@ -365,7 +365,7 @@ describe('Queue Integration - Retries and DLQ', () => {
         3,
         'Network error',
       );
-      failedJob.data = { ...failedJob.data, ...originalData };
+      failedJob.data = originalData;
 
       mockQueues.deployContractQueue.getJob.mockResolvedValue(failedJob);
       const requeuedJob = createMockJob('job-2', 'deploy-contract', 0, 3);
