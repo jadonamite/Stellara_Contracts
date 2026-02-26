@@ -56,20 +56,28 @@ describe('LlmService', () => {
     const sessionId = 'session123';
     const prompt = 'Hello';
     const model = 'gpt-3.5-turbo';
-
+    
     it('should return cached response if available', async () => {
-      mockRedisClient.get.mockResolvedValueOnce(null); // No custom quota
-      mockRedisClient.get.mockResolvedValueOnce(null); // No custom quota
-      mockRedisClient.get.mockResolvedValueOnce(null); // Monthly usage
-      mockRedisClient.get.mockResolvedValueOnce(null); // Session usage
-      mockRedisClient.get.mockResolvedValueOnce(null); // RPM usage
-      mockRedisClient.incr.mockResolvedValue(1); // Initialize counters
-      mockRedisClient.get.mockResolvedValueOnce('cached response'); // Cache hit
+      // enforceQuota -> checkMonthlyQuota: custom limit key
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // enforceQuota -> checkMonthlyQuota: monthly usage
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // enforceQuota -> checkSessionQuota: session usage
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // enforceQuota -> checkRequestsPerMinute: RPM usage
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // enforceQuota -> getQuotaStatus: monthly value
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // enforceQuota -> getQuotaStatus: session value
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // enforceQuota -> getQuotaStatus: RPM value
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // cacheService.get: cache hit
+      mockRedisClient.get.mockResolvedValueOnce('cached response');
 
       const result = await service.generateResponse(userId, sessionId, prompt, {
         model,
       });
-
       expect(result.cached).toBe(true);
       expect(result.content).toBe('cached response');
       expect(result.model).toBe(model);
