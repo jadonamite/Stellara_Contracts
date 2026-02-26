@@ -23,12 +23,12 @@ export class WalletBinding {
   @Column()
   userId: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   boundAt: Date;
 
   @Column({ default: true })
   isPrimary: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   lastUsed?: Date;
 }

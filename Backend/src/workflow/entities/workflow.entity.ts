@@ -24,13 +24,13 @@ export class Workflow {
   idempotencyKey: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: WorkflowType,
   })
   type: WorkflowType;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: WorkflowState,
     default: WorkflowState.PENDING,
   })
@@ -42,13 +42,13 @@ export class Workflow {
   @Column({ nullable: true })
   walletAddress?: string;
 
-  @Column('jsonb')
+  @Column({ type: 'simple-json' })
   input: Record<string, any>;
 
-  @Column('jsonb', { nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   output?: Record<string, any>;
 
-  @Column('jsonb', { nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   context?: Record<string, any>;
 
   @Column({ default: 0 })
@@ -57,13 +57,13 @@ export class Workflow {
   @Column({ default: 0 })
   totalSteps: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   startedAt?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   completedAt?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   failedAt?: Date;
 
   @Column({ nullable: true })
@@ -75,7 +75,7 @@ export class Workflow {
   @Column({ default: 3 })
   maxRetries: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   nextRetryAt?: Date;
 
   @Column({ default: false })

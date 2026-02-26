@@ -31,7 +31,7 @@ export class UserEvent {
   @Column({ type: 'varchar', length: 36, nullable: true })
   userId: string | null;
 
-  @Column({ type: 'enum', enum: UserEventType })
+  @Column({ type: 'simple-enum', enum: UserEventType })
   eventType: UserEventType;
 
   @Column({ type: 'varchar', length: 128, nullable: true })
@@ -49,9 +49,9 @@ export class UserEvent {
   @Column({ type: 'varchar', length: 64, nullable: true })
   variant: string | null;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   metadata: Record<string, any> | null;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   timestamp: Date;
 }

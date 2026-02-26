@@ -24,7 +24,7 @@ export class StellarEvent {
   @Index()
   ledgerSequence: number;
 
-  @Column({ type: 'timestamptz' })
+  @Column({ type: 'datetime' })
   @Index()
   timestamp: Date;
 
@@ -50,11 +50,11 @@ export class StellarEvent {
   @Column({ default: 0 })
   deliveryAttempts: number;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @Index()
   lastAttemptAt?: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   deliveredAt?: Date;
 
   @Column({ type: 'simple-array', nullable: true })

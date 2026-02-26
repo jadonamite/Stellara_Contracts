@@ -21,10 +21,10 @@ export class User {
   @Column({ nullable: true })
   username?: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updatedAt: Date;
 
   @Column({ default: true })

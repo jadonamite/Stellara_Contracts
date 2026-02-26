@@ -30,27 +30,27 @@ export class Experiment {
   description: string | null;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: ExperimentStatus,
     default: ExperimentStatus.DRAFT,
   })
   status: ExperimentStatus;
 
-  @Column({ type: 'json' })
+  @Column({ type: 'simple-json' })
   variants: Array<{ name: string; weight: number }>;
 
   @Column({ type: 'varchar', length: 36, nullable: true })
   tenantId: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   startAt: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   endAt: Date | null;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

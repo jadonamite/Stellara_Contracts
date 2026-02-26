@@ -28,19 +28,19 @@ export class WorkflowStep {
   stepIndex: number;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: StepState,
     default: StepState.PENDING,
   })
   state: StepState;
 
-  @Column('jsonb', { nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   input?: Record<string, any>;
 
-  @Column('jsonb', { nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   output?: Record<string, any>;
 
-  @Column('jsonb', { nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   config?: Record<string, any>;
 
   @Column({ default: 0 })
@@ -49,19 +49,19 @@ export class WorkflowStep {
   @Column({ default: 3 })
   maxRetries: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   startedAt?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   completedAt?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   failedAt?: Date;
 
   @Column({ nullable: true })
   failureReason?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   nextRetryAt?: Date;
 
   @Column({ default: false })
@@ -70,13 +70,13 @@ export class WorkflowStep {
   @Column({ default: false })
   isCompensated: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   compensatedAt?: Date;
 
   @Column({ nullable: true })
   compensationStepName?: string;
 
-  @Column('jsonb', { nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   compensationConfig?: Record<string, any>;
 
   @Column({ default: false })

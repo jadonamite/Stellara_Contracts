@@ -24,6 +24,6 @@ export class ExperimentAssignment {
   @Column({ type: 'varchar', length: 64 })
   variant: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   assignedAt: Date;
 }

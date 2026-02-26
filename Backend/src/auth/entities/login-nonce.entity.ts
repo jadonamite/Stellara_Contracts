@@ -16,12 +16,12 @@ export class LoginNonce {
   @Column()
   publicKey: string;
 
-  @Column({ type: 'timestamp' })
+  @Column()
   expiresAt: Date;
 
   @Column({ default: false })
   used: boolean;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 }

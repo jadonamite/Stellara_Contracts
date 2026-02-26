@@ -29,15 +29,15 @@ export class ApiToken {
   @Column()
   userId: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   expiresAt?: Date;
 
   @Column({ default: false })
   revoked: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   lastUsedAt?: Date;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 }

@@ -24,24 +24,24 @@ export class PersonalizationRule {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({ type: 'enum', enum: RuleStatus, default: RuleStatus.ACTIVE })
+  @Column({ type: 'simple-enum', enum: RuleStatus, default: RuleStatus.ACTIVE })
   status: RuleStatus;
 
   @Column({ type: 'int', default: 0 })
   priority: number;
 
-  @Column({ type: 'json' })
+  @Column({ type: 'simple-json' })
   conditions: any;
 
-  @Column({ type: 'json' })
+  @Column({ type: 'simple-json' })
   actions: any;
 
   @Column({ type: 'varchar', length: 36, nullable: true })
   tenantId: string | null;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

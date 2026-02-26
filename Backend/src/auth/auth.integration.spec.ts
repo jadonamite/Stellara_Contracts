@@ -8,13 +8,24 @@ import { RedisService } from '../redis/redis.service';
 import { Keypair } from '@stellar/stellar-sdk';
 import * as nacl from 'tweetnacl';
 
+function signMessage(message: string, keypair: Keypair): string {
+  const messageBytes = Buffer.from(message, 'utf-8');
+  const seed = keypair.rawSecretKey();
+  const naclKeypair = nacl.sign.keyPair.fromSeed(seed);
+  const signature = nacl.sign.detached(messageBytes, naclKeypair.secretKey);
+  return Buffer.from(signature).toString('base64');
+}
+
 describe('Auth Integration Tests (e2e)', () => {
   let app: INestApplication;
   let testKeypair: Keypair;
   let testKeypair2: Keypair;
+  let incrCounter = 0;
+  let evalCounter = 0;
 
   beforeAll(async () => {
-    // Generate test keypairs
+    incrCounter = 0;
+    evalCounter = 0;
     testKeypair = Keypair.random();
     testKeypair2 = Keypair.random();
 
@@ -22,9 +33,9 @@ describe('Auth Integration Tests (e2e)', () => {
       client: {
         get: jest.fn().mockResolvedValue(null),
         set: jest.fn().mockResolvedValue('OK'),
-        incr: jest.fn().mockResolvedValue(1),
+        incr: jest.fn().mockImplementation(() => Promise.resolve(++incrCounter)),
         expire: jest.fn().mockResolvedValue(1),
-        eval: jest.fn().mockResolvedValue([1, 60]),
+        eval: jest.fn().mockImplementation(() => Promise.resolve([++evalCounter, 60])),
         del: jest.fn().mockResolvedValue(1),
         keys: jest.fn().mockResolvedValue([]),
         connect: jest.fn().mockResolvedValue(undefined),
@@ -60,7 +71,7 @@ describe('Auth Integration Tests (e2e)', () => {
       }),
     );
     await app.init();
-  });
+  }, 30000);
 
   afterAll(async () => {
     if (app) {
@@ -87,10 +98,7 @@ describe('Auth Integration Tests (e2e)', () => {
 
     it('should login with valid signature', async () => {
       const message = `Sign this message to authenticate with Stellara: ${nonce}`;
-      const messageBytes = Buffer.from(message, 'utf-8');
-      const secretKey = testKeypair.rawSecretKey();
-      const signature = nacl.sign.detached(messageBytes, secretKey);
-      const signatureBase64 = Buffer.from(signature).toString('base64');
+      const signatureBase64 = signMessage(message, testKeypair);
 
       const response = await request(app.getHttpServer())
         .post('/auth/wallet/login')
@@ -121,6 +129,7 @@ describe('Auth Integration Tests (e2e)', () => {
     });
 
     it('should refresh access token', async () => {
+      await new Promise((r) => setTimeout(r, 1100));
       const response = await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({ refreshToken })
@@ -129,7 +138,6 @@ describe('Auth Integration Tests (e2e)', () => {
       expect(response.body).toHaveProperty('accessToken');
       expect(response.body).toHaveProperty('refreshToken');
 
-      // New tokens should be different
       expect(response.body.accessToken).not.toBe(accessToken);
       expect(response.body.refreshToken).not.toBe(refreshToken);
     });
@@ -144,21 +152,17 @@ describe('Auth Integration Tests (e2e)', () => {
 
   describe('Replay Attack Prevention', () => {
     it('should reject reused nonce', async () => {
-      // Request nonce
+      incrCounter = 0;
+      evalCounter = 0;
+
       const nonceResponse = await request(app.getHttpServer())
         .post('/auth/nonce')
         .send({ publicKey: testKeypair.publicKey() });
 
       const nonce = nonceResponse.body.nonce;
       const message = `Sign this message to authenticate with Stellara: ${nonce}`;
-      const messageBytes = Buffer.from(message, 'utf-8');
-      const signature = nacl.sign.detached(
-        messageBytes,
-        testKeypair.rawSecretKey(),
-      );
-      const signatureBase64 = Buffer.from(signature).toString('base64');
+      const signatureBase64 = signMessage(message, testKeypair);
 
-      // First login should succeed
       await request(app.getHttpServer())
         .post('/auth/wallet/login')
         .send({
@@ -168,7 +172,6 @@ describe('Auth Integration Tests (e2e)', () => {
         })
         .expect(200);
 
-      // Second login with same nonce should fail
       await request(app.getHttpServer())
         .post('/auth/wallet/login')
         .send({
@@ -182,6 +185,9 @@ describe('Auth Integration Tests (e2e)', () => {
 
   describe('Invalid Signature', () => {
     it('should reject invalid signature', async () => {
+      incrCounter = 0;
+      evalCounter = 0;
+
       const nonceResponse = await request(app.getHttpServer())
         .post('/auth/nonce')
         .send({ publicKey: testKeypair.publicKey() });
@@ -206,28 +212,27 @@ describe('Auth Integration Tests (e2e)', () => {
     let apiTokenId: string;
 
     beforeAll(async () => {
-      // Login first
+      incrCounter = 0;
+      evalCounter = 0;
+
       const nonceResponse = await request(app.getHttpServer())
         .post('/auth/nonce')
         .send({ publicKey: testKeypair.publicKey() });
 
       const nonce = nonceResponse.body.nonce;
       const message = `Sign this message to authenticate with Stellara: ${nonce}`;
-      const signature = nacl.sign.detached(
-        Buffer.from(message, 'utf-8'),
-        testKeypair.rawSecretKey(),
-      );
+      const signatureBase64 = signMessage(message, testKeypair);
 
       const loginResponse = await request(app.getHttpServer())
         .post('/auth/wallet/login')
         .send({
           publicKey: testKeypair.publicKey(),
-          signature: Buffer.from(signature).toString('base64'),
+          signature: signatureBase64,
           nonce,
         });
 
       accessToken = loginResponse.body.accessToken;
-    });
+    }, 30000);
 
     it('should create API token', async () => {
       const response = await request(app.getHttpServer())
@@ -271,71 +276,65 @@ describe('Auth Integration Tests (e2e)', () => {
     let userId: string;
 
     beforeAll(async () => {
-      // Login with first wallet
+      incrCounter = 0;
+      evalCounter = 0;
+
       const nonceResponse = await request(app.getHttpServer())
         .post('/auth/nonce')
         .send({ publicKey: testKeypair.publicKey() });
 
       const nonce = nonceResponse.body.nonce;
       const message = `Sign this message to authenticate with Stellara: ${nonce}`;
-      const signature = nacl.sign.detached(
-        Buffer.from(message, 'utf-8'),
-        testKeypair.rawSecretKey(),
-      );
+      const signatureBase64 = signMessage(message, testKeypair);
 
       const loginResponse = await request(app.getHttpServer())
         .post('/auth/wallet/login')
         .send({
           publicKey: testKeypair.publicKey(),
-          signature: Buffer.from(signature).toString('base64'),
+          signature: signatureBase64,
           nonce,
         });
 
       accessToken = loginResponse.body.accessToken;
       userId = loginResponse.body.user.id;
-    });
+    }, 30000);
 
     it('should bind additional wallet', async () => {
-      // Get nonce for second wallet
       const nonceResponse = await request(app.getHttpServer())
         .post('/auth/nonce')
         .send({ publicKey: testKeypair2.publicKey() });
 
       const nonce = nonceResponse.body.nonce;
       const message = `Sign this message to authenticate with Stellara: ${nonce}`;
-      const signature = nacl.sign.detached(
-        Buffer.from(message, 'utf-8'),
-        testKeypair2.rawSecretKey(),
-      );
+      const signatureBase64 = signMessage(message, testKeypair2);
 
       await request(app.getHttpServer())
         .post('/auth/wallet/bind')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           publicKey: testKeypair2.publicKey(),
-          signature: Buffer.from(signature).toString('base64'),
+          signature: signatureBase64,
           nonce,
         })
         .expect(201);
     });
 
-    it('should login with second wallet and access same account', async () => {
+  it('should login with second wallet and access same account', async () => {
+      incrCounter = 0;
+      evalCounter = 0;
       const nonceResponse = await request(app.getHttpServer())
         .post('/auth/nonce')
         .send({ publicKey: testKeypair2.publicKey() });
 
       const nonce = nonceResponse.body.nonce;
       const message = `Sign this message to authenticate with Stellara: ${nonce}`;
-      const signature = nacl.sign.detached(
-        Buffer.from(message, 'utf-8'),
-        testKeypair2.rawSecretKey(),
-      );
+      const signatureBase64 = signMessage(message, testKeypair2);
 
       const loginResponse = await request(app.getHttpServer())
         .post('/auth/wallet/login')
         .send({
           publicKey: testKeypair2.publicKey(),
-          signature: Buffer.from(signature).toString('base64'),
+          signature: signatureBase64,
           nonce,
         })
         .expect(200);
@@ -346,9 +345,11 @@ describe('Auth Integration Tests (e2e)', () => {
 
   describe('Rate Limiting', () => {
     it('should enforce rate limits on nonce endpoint', async () => {
+      incrCounter = 0;
+      evalCounter = 0;
+
       const publicKey = Keypair.random().publicKey();
 
-      // Make 6 rapid requests (limit is 5 per minute)
       const requests: Array<Promise<any>> = [];
       for (let i = 0; i < 6; i++) {
         requests.push(

@@ -23,15 +23,15 @@ export class RefreshToken {
   @Column()
   userId: string;
 
-  @Column({ type: 'timestamp' })
+  @Column()
   expiresAt: Date;
 
   @Column({ default: false })
   revoked: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   revokedAt?: Date;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 }
