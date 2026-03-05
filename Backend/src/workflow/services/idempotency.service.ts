@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class IdempotencyService {
@@ -67,7 +67,7 @@ export class IdempotencyService {
     operationType: string,
     identifier: string,
   ): string {
-    return `${operationType}:${identifier}:${uuidv4()}`;
+    return `${operationType}:${identifier}:${randomUUID()}`;
   }
 
   /**

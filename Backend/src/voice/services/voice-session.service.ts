@@ -7,7 +7,7 @@ import {
   VoiceSessionFactory,
 } from '../entities/voice-session.entity';
 import { ConversationState } from '../types/conversation-state.enum';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class VoiceSessionService implements OnModuleInit {
@@ -104,7 +104,7 @@ export class VoiceSessionService implements OnModuleInit {
     }
 
     const message: VoiceMessage = {
-      id: uuidv4(),
+      id: randomUUID(),
       content,
       timestamp: new Date(),
       isUser,

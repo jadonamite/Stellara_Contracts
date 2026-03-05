@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import supertest from 'supertest';
@@ -16,21 +16,13 @@ describe('Audit Integration', () => {
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ envFilePath: '.env.test', isGlobal: true }),
-        TypeOrmModule.forRootAsync({
-          imports: [ConfigModule],
-          inject: [ConfigService],
-          useFactory: (config: ConfigService) => ({
-            type: 'postgres',
-            host: config.get('DB_HOST'),
-            port: config.get('DB_PORT'),
-            username: config.get('DB_USERNAME'),
-            password: config.get('DB_PASSWORD'),
-            database: config.get('DB_DATABASE'),
-            entities: [AuditLog],
-            synchronize: true, // auto-create tables in test DB
-            logging: false,
-          }),
+        ConfigModule.forRoot({ isGlobal: true }),
+        TypeOrmModule.forRoot({
+          type: 'sqlite',
+          database: ':memory:',
+          entities: [AuditLog],
+          synchronize: true,
+          logging: false,
         }),
         TypeOrmModule.forFeature([AuditLog]),
         AuditModule,
@@ -47,7 +39,7 @@ describe('Audit Integration', () => {
     await app.init();
 
     auditService = moduleRef.get<AuditService>(AuditService);
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();
@@ -55,8 +47,8 @@ describe('Audit Integration', () => {
 
   it('should log an action and retrieve it via admin endpoint', async () => {
     // Clear table first
-    await auditService['auditRepository'].clear();
-
+   await auditService.clearAllLogs();
+   
     // Log action
     await auditService.logAction('USER_CREATED', 'admin-id', 'user-123', {
       email: 'test@example.com',

@@ -16,6 +16,11 @@ describe('ConsumerManagementService', () => {
     find: jest.fn(),
     remove: jest.fn(),
     count: jest.fn(),
+   createQueryBuilder: jest.fn().mockImplementation(() => ({
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: () => mockConsumerRepository.find(),
+      })),
   };
 
   beforeEach(async () => {

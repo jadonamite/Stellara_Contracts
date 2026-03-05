@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { LoginNonce } from '../entities/login-nonce.entity';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class NonceService {
   async generateNonce(
     publicKey: string,
   ): Promise<{ nonce: string; expiresAt: Date; message: string }> {
-    const nonce = uuidv4();
+    const nonce = randomUUID();
     const expiresAt = new Date();
     expiresAt.setMinutes(
       expiresAt.getMinutes() + this.NONCE_EXPIRATION_MINUTES,

@@ -5,7 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { Horizon } from '@stellar/stellar-sdk';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { EventStorageService } from './event-storage.service';
 import { WebhookDeliveryService } from './webhook-delivery.service';
 import { StellarEvent } from '../entities/stellar-event.entity';
@@ -220,7 +220,7 @@ export class StellarEventMonitorService
   private async handlePaymentEvent(payment: any): Promise<void> {
     try {
       const eventData = {
-        id: uuidv4(),
+        id: randomUUID(),
         eventType: EventType.PAYMENT,
         ledgerSequence: payment.transaction_attr.ledger,
         timestamp: new Date(payment.created_at).toISOString(),
@@ -255,7 +255,7 @@ export class StellarEventMonitorService
   private async handleOfferEvent(offer: any): Promise<void> {
     try {
       const eventData = {
-        id: uuidv4(),
+        id: randomUUID(),
         eventType: EventType.OFFER,
         ledgerSequence: offer.transaction_attr.ledger,
         timestamp: new Date(offer.created_at).toISOString(),
@@ -309,11 +309,11 @@ export class StellarEventMonitorService
     assetType: string = 'native',
   ): Promise<StellarEvent> {
     const eventData = {
-      id: uuidv4(),
+      id: randomUUID(),
       eventType: EventType.PAYMENT,
       ledgerSequence: this.lastLedgerSequence + 1,
       timestamp: new Date().toISOString(),
-      transactionHash: `simulated-${uuidv4()}`,
+      transactionHash: `simulated-${randomUUID()}`,
       sourceAccount: from,
       payload: {
         amount,
@@ -341,11 +341,11 @@ export class StellarEventMonitorService
     ).toString();
 
     const eventData = {
-      id: uuidv4(),
+      id: randomUUID(),
       eventType: EventType.OFFER,
       ledgerSequence: this.lastLedgerSequence + 1,
       timestamp: new Date().toISOString(),
-      transactionHash: `simulated-${uuidv4()}`,
+      transactionHash: `simulated-${randomUUID()}`,
       sourceAccount: seller,
       payload: {
         offerId: 'simulated-' + Date.now(),

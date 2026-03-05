@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { v4 as uuidv4, v4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { TraceContext, TraceHeaders } from '../types/trace-context.interface';
 
 /**
@@ -161,7 +161,7 @@ export class TracingService implements OnModuleDestroy {
    */
   private generateTraceId(): string {
     // Generate 16-byte hex string (128 bits)
-    return uuidv4().replace(/-/g, '').substring(0, 32);
+    return randomUUID().replace(/-/g, '').substring(0, 32);
   }
 
   /**
@@ -169,7 +169,7 @@ export class TracingService implements OnModuleDestroy {
    */
   private generateSpanId(): string {
     // Generate 8-byte hex string (64 bits)
-    return uuidv4().replace(/-/g, '').substring(0, 16);
+    return randomUUID().replace(/-/g, '').substring(0, 16);
   }
 
   /**

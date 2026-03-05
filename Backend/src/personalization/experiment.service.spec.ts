@@ -33,6 +33,7 @@ describe('ExperimentService', () => {
 
     const savedAssignments: ExperimentAssignment[] = [];
     assignRepo = {
+      create: jest.fn().mockImplementation((data: any) => ({ ...data })),
       findOne: jest
         .fn()
         .mockImplementation(

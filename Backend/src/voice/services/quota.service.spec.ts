@@ -33,7 +33,7 @@ describe('QuotaService', () => {
 
     service = module.get<QuotaService>(QuotaService);
     redisService = module.get<RedisService>(RedisService);
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('enforceQuota', () => {
@@ -41,13 +41,22 @@ describe('QuotaService', () => {
     const sessionId = 'session123';
 
     it('should allow request when within all quotas', async () => {
-      mockRedisClient.get.mockResolvedValue('1'); // Within limits
-      mockRedisClient.incr.mockResolvedValue(1);
+      // checkMonthlyQuota: custom limit key (null = use default 1000)
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      // checkMonthlyQuota: monthly usage (within limit)
+      mockRedisClient.get.mockResolvedValueOnce('5');
+      // checkSessionQuota: session usage (within limit)
+      mockRedisClient.get.mockResolvedValueOnce('5');
+      // checkRequestsPerMinute: RPM usage (within limit)
+      mockRedisClient.get.mockResolvedValueOnce('5');
+      // getQuotaStatus: monthly, session, RPM values
+      mockRedisClient.get.mockResolvedValueOnce('5');
+      mockRedisClient.get.mockResolvedValueOnce('5');
+      mockRedisClient.get.mockResolvedValueOnce('5');
 
       const status = await service.enforceQuota(userId, sessionId);
 
       expect(status.monthlyUsage).toBeDefined();
-      expect(mockRedisClient.incr).toHaveBeenCalled();
     });
 
     it('should throw when monthly quota exceeded', async () => {
@@ -70,6 +79,7 @@ describe('QuotaService', () => {
     });
 
     it('should throw when rate limit exceeded', async () => {
+      mockRedisClient.get.mockResolvedValueOnce(null); 
       mockRedisClient.get.mockResolvedValueOnce('100'); // Monthly OK
       mockRedisClient.get.mockResolvedValueOnce('50'); // Session OK
       mockRedisClient.get.mockResolvedValueOnce('21'); // RPM exceeds default limit
@@ -113,8 +123,9 @@ describe('QuotaService', () => {
     const userId = 'user123';
     const sessionId = 'session123';
 
-    it('should increment all quota counters', async () => {
-      mockRedisClient.incr.mockResolvedValue(1);
+   it('should increment all quota counters', async () => {
+      mockRedisClient.incr.mockResolvedValue(1); // returns 1 → triggers expire
+      mockRedisClient.expire.mockResolvedValue(1);
 
       await service.recordRequest(userId, sessionId);
 

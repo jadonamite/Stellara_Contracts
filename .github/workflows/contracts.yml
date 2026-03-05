@@ -2,13 +2,22 @@ name: Contracts CI
 
 on:
   pull_request:
+    paths:
+      - 'Contracts/**'
+      - '.github/workflows/contracts.yml'
   push:
     branches: [main]
+    paths:
+      - 'Contracts/**'
+      - '.github/workflows/contracts.yml'
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Skip Rust compilation
-        run: echo "Rust compilation disabled per request"
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - run: cd Contracts && cargo test --all

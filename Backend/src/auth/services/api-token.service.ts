@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { ApiToken } from '../entities/api-token.entity';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ApiTokenService {
@@ -27,7 +27,7 @@ export class ApiTokenService {
     expiresInDays?: number,
   ): Promise<{ token: string; id: string; expiresAt: Date | null }> {
     // Generate a secure random token
-    const plainToken = `stl_${uuidv4()}${uuidv4()}`.replace(/-/g, '');
+    const plainToken = `stl_${randomUUID()}${randomUUID()}`.replace(/-/g, '');
 
     // Hash the token for storage
     const hashedToken = await bcrypt.hash(plainToken, this.SALT_ROUNDS);

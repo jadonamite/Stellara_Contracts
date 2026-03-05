@@ -3,7 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { VoiceSessionService } from './voice-session.service';
 import { LlmService } from './llm.service';
 import { ConversationState } from '../types/conversation-state.enum';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 export interface StreamingChunk {
   id: string;
@@ -37,7 +37,7 @@ export class StreamingResponseService {
     sessionId: string,
     userMessage: string,
   ): Promise<string> {
-    const streamId = uuidv4();
+    const streamId = randomUUID();
     const session = await this.voiceSessionService.getSession(sessionId);
 
     if (!session) {
@@ -123,7 +123,7 @@ export class StreamingResponseService {
       currentText += (i > 0 ? ' ' : '') + words[i];
 
       const chunk: StreamingChunk = {
-        id: uuidv4(),
+        id: randomUUID(),
         content: currentText,
         isComplete: i === words.length - 1,
         isPartial: i < words.length - 1,

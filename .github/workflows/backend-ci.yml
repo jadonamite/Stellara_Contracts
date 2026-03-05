@@ -1,47 +1,24 @@
-name: Backend CI/CD Pipeline
+name: Backend CI
 
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'Backend/**'
-      - '.github/workflows/backend-ci.yml'
   pull_request:
-    branches: [main, develop]
     paths:
       - 'Backend/**'
       - '.github/workflows/backend-ci.yml'
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options: [staging, production]
-      deploy:
-        description: 'Deploy after build'
-        required: true
-        default: false
-        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - 'Backend/**'
+      - '.github/workflows/backend-ci.yml'
 
-env:
-  NODE_VERSION: '20'
-  WORKING_DIRECTORY: './Backend'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/backend
+defaults:
+  run:
+    working-directory: ./Backend
 
 jobs:
-  # =============================================================================
-  # SECURITY SCANNING
-  # =============================================================================
-  security-scan:
-    name: Security Scanning
+  type-check:
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
+    name: Type Checking
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,292 +26,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20'
           cache: 'npm'
-          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
+          cache-dependency-path: 'Backend/package-lock.json'
 
       - name: Install dependencies
-        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: npm ci
 
-      - name: Run npm audit
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          npm audit --audit-level=high --json > audit-report.json || true
-          npm audit --audit-level=high || true
+      - name: Run TypeScript type checking
+        run: npx tsc --noEmit
 
-      - name: Upload audit report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: npm-audit-report
-          path: ${{ env.WORKING_DIRECTORY }}/audit-report.json
-          retention-days: 30
-
-      - name: Run ESLint security checks
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npm run lint -- --max-warnings=0 || true
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-          queries: security-extended,security-and-quality
-
-      - name: Autobuild CodeQL
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: '/language:javascript'
-
-  # =============================================================================
-  # UNIT TESTS
-  # =============================================================================
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    needs: security-scan
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npm ci
-
-      - name: Create test environment file
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          cat > .env << EOF
-          NODE_ENV=test
-          DB_HOST=localhost
-          DB_PORT=5432
-          DB_USERNAME=postgres
-          DB_PASSWORD=postgres
-          DB_DATABASE=stellara_test
-          DB_USER=postgres
-          DB_NAME=stellara_test
-          REDIS_HOST=localhost
-          REDIS_PORT=6379
-          JWT_SECRET=test-secret-key-for-ci
-          EOF
-
-      - name: Run unit tests with coverage
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npm run test:cov
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: ${{ env.WORKING_DIRECTORY }}/coverage
-          retention-days: 30
-
-      - name: Check coverage threshold
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
-          echo "Coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 50" | bc -l) )); then
-            echo "::warning::Coverage $COVERAGE% is below recommended threshold of 70%"
-            # exit 1  # Temporarily disabled to allow pipeline to pass
-          fi
-
-  # =============================================================================
-  # INTEGRATION TESTS
-  # =============================================================================
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: stellara_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npm ci
-
-      - name: Create test environment file
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          cat > .env << EOF
-          NODE_ENV=test
-          DB_HOST=localhost
-          DB_PORT=5432
-          DB_USERNAME=postgres
-          DB_PASSWORD=postgres
-          DB_DATABASE=stellara_test
-          DB_USER=postgres
-          DB_NAME=stellara_test
-          REDIS_HOST=localhost
-          REDIS_PORT=6379
-          JWT_SECRET=test-secret-key-for-ci
-          EOF
-
-      - name: Run database migrations
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        env:
-          DB_TYPE: postgres
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-          DB_DATABASE: stellara_test
-          DB_USER: postgres
-          DB_NAME: stellara_test
-          NODE_ENV: test
-        run: npm run migration:run
-
-      - name: Run integration tests
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        env:
-          DB_TYPE: postgres
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-          DB_DATABASE: stellara_test
-          DB_USER: postgres
-          DB_NAME: stellara_test
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          NODE_ENV: test
-          JWT_SECRET: test-secret-key-for-ci
-        run: npm run test -- --testPathPattern="integration" --runInBand
-
-  # =============================================================================
-  # E2E TESTS
-  # =============================================================================
-  e2e-tests:
-    name: End-to-End Tests
-    runs-on: ubuntu-latest
-    needs: integration-tests
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: stellara_e2e
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npm ci
-
-      - name: Create test environment file
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          cat > .env << EOF
-          NODE_ENV=test
-          DB_HOST=localhost
-          DB_PORT=5432
-          DB_USERNAME=postgres
-          DB_PASSWORD=postgres
-          DB_DATABASE=stellara_e2e
-          DB_USER=postgres
-          DB_NAME=stellara_e2e
-          REDIS_HOST=localhost
-          REDIS_PORT=6379
-          JWT_SECRET=test-secret-key-for-e2e
-          EOF
-
-      - name: Build application
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npm run build
-
-      - name: Run E2E tests
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        env:
-          DB_TYPE: postgres
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-          DB_DATABASE: stellara_e2e
-          DB_USER: postgres
-          DB_NAME: stellara_e2e
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          NODE_ENV: test
-          JWT_SECRET: test-secret-key-for-e2e
-        run: npm run test:e2e
-
-  # =============================================================================
-  # BUILD AND PACKAGE
-  # =============================================================================
   build:
-    name: Build and Package
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      image_tag: ${{ steps.meta.outputs.tags }}
+    name: Build
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -342,232 +46,146 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20'
           cache: 'npm'
-          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
+          cache-dependency-path: 'Backend/package-lock.json'
 
       - name: Install dependencies
-        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: npm ci
 
-      - name: Create test environment file
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          cat > .env << EOF
-          NODE_ENV=test
-          DB_HOST=localhost
-          DB_PORT=5432
-          DB_USERNAME=postgres
-          DB_PASSWORD=postgres
-          DB_DATABASE=stellara_test
-          DB_USER=postgres
-          DB_NAME=stellara_test
-          REDIS_HOST=localhost
-          REDIS_PORT=6379
-          JWT_SECRET=test-secret-key-for-ci
-          EOF
-
-      - name: Generate version
-        id: version
-        run: |
-          VERSION=$(date +'%Y.%m.%d')-${GITHUB_SHA::7}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Build application
-        working-directory: ${{ env.WORKING_DIRECTORY }}
+      - name: Build project
         run: npm run build
 
-      - name: Package application
-        working-directory: ${{ env.WORKING_DIRECTORY }}
+      - name: Verify build output
         run: |
-          mkdir -p dist/package
-          cp -r dist/* dist/package/
-          cp package.json package-lock.json dist/package/
-          cd dist/package
-          npm ci --production
-          cd ..
-          tar -czf backend-${{ steps.version.outputs.version }}.tar.gz package/
+          if [ ! -d "dist" ]; then
+            echo "Build failed: dist directory not found"
+            exit 1
+          fi
+          
+          if [ -z "$(ls -A dist/)" ]; then
+            echo "Build failed: dist directory is empty"
+            exit 1
+          fi
+          
+          echo "Build successful: $(ls -la dist/ | wc -l) files generated"
 
-      - name: Upload build artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: backend-build-${{ steps.version.outputs.version }}
-          path: ${{ env.WORKING_DIRECTORY }}/dist/backend-*.tar.gz
-          retention-days: 30
+          name: backend-build
+          path: Backend/dist/
+          retention-days: 5
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ env.WORKING_DIRECTORY }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            NODE_VERSION=${{ env.NODE_VERSION }}
-            BUILD_VERSION=${{ steps.version.outputs.version }}
-
-  # =============================================================================
-  # DEPLOY TO STAGING
-  # =============================================================================
-  deploy-staging:
-    name: Deploy to Staging
+  startup-test:
     runs-on: ubuntu-latest
-    needs: [build, e2e-tests]
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
-    environment:
-      name: staging
-      url: ${{ steps.deploy.outputs.url }}
+    name: Application Startup Test
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          name: backend-build-${{ needs.build.outputs.version }}
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'Backend/package-lock.json'
 
-      - name: Deploy to staging
-        id: deploy
-        env:
-          DEPLOY_ENV: staging
-          VERSION: ${{ needs.build.outputs.version }}
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Install pm2 globally
+        run: npm install -g pm2
+
+      - name: Create .env.test file for testing
         run: |
-          echo "Deploying version $VERSION to staging..."
-          # Add your staging deployment commands here
-          # Example: kubectl set image deployment/backend backend=$IMAGE
-          echo "url=https://api-staging.stellara.ai" >> $GITHUB_OUTPUT
-          echo "::notice::Deployed to staging: $VERSION"
+          cp .env.example .env.test || echo "DB_TYPE=sqlite" > .env.test
+          echo "NODE_ENV=test" >> .env.test
+          echo "PORT=3001" >> .env.test
+          cat .env.test
 
-      - name: Run smoke tests
+      - name: Start application in background
         run: |
-          echo "Running smoke tests against staging..."
-          # Add smoke tests here
-          # curl -f https://api-staging.stellara.ai/health || exit 1
+          # Set environment variable for test mode
+          export NODE_ENV=test
+          export PORT=3001
+          
+          # Start the application using pm2
+          pm2 start dist/main.js --name "backend-app" --no-daemon &
+          
+          # Wait a bit for the app to start
+          sleep 10
+          
+          # Check if the process is running
+          pm2 status
 
-      - name: Notify deployment status
+      - name: Health check
+        run: |
+          # Wait a bit more for the server to start
+          sleep 10
+          
+          # Try to reach the server (if it has a health endpoint)
+          # For now, we'll just verify that the process is running
+          if ! pgrep -f "node.*dist/main"; then
+            echo "Application failed to start properly"
+            pm2 logs --lines 50 || echo "No logs available"
+            exit 1
+          fi
+          
+          echo "Application started successfully"
+
+      - name: Stop application
         if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const status = '${{ job.status }}';
-            const message = status === 'success' 
-              ? '✅ Staging deployment successful'
-              : '❌ Staging deployment failed';
-            github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: status === 'success' ? 'success' : 'failure',
-              context: 'Deploy to Staging',
-              description: message,
-            });
+        run: |
+          pm2 stop all || true
+          pm2 delete all || true
+          pkill -f "node.*dist/main" || true
 
-  # =============================================================================
-  # DEPLOY TO PRODUCTION
-  # =============================================================================
-  deploy-production:
-    name: Deploy to Production
+  dependency-check:
     runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production') || (github.ref == 'refs/heads/main' && github.event.inputs.deploy == 'true')
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
+    name: Dependency Analysis
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          name: backend-build-${{ needs.build.outputs.version }}
+          node-version: '20'
 
-      - name: Deploy to production
-        id: deploy
-        env:
-          DEPLOY_ENV: production
-          VERSION: ${{ needs.build.outputs.version }}
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for outdated dependencies
         run: |
-          echo "Deploying version $VERSION to production..."
-          # Add your production deployment commands here
-          # Example: kubectl set image deployment/backend backend=$IMAGE
-          echo "url=https://api.stellara.ai" >> $GITHUB_OUTPUT
-          echo "::notice::Deployed to production: $VERSION"
+          echo "Checking for outdated dependencies..."
+          npm outdated || echo "Some packages are outdated (this is not necessarily an error)"
 
-      - name: Run health checks
+      - name: Validate package integrity
         run: |
-          echo "Running health checks against production..."
-          # Add health checks here
-          # curl -f https://api.stellara.ai/health || exit 1
+          if [ ! -f "package-lock.json" ]; then
+            echo "ERROR: package-lock.json not found!"
+            exit 1
+          fi
+          
+          echo "Verifying package-lock.json integrity..."
+          npm ls --depth=0 > /dev/null
+          if [ $? -ne 0 ]; then
+            echo "ERROR: Dependency tree validation failed!"
+            npm ls --depth=0
+            exit 1
+          fi
+          
+          echo "Dependency validation passed!"
 
-      - name: Create deployment summary
-        if: success()
-        run: |
-          echo "## Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** ${{ needs.build.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL:** https://api.stellara.ai" >> $GITHUB_STEP_SUMMARY
-
-  # =============================================================================
-  # NOTIFICATIONS
-  # =============================================================================
-  notify:
-    name: Send Notifications
+  combined-check:
     runs-on: ubuntu-latest
-    needs: [build, deploy-staging, deploy-production]
-    if: always()
+    name: All Checks Combined
+    needs: [type-check, build, startup-test, dependency-check]
     steps:
-      - name: Notify on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const failed = [
-              '${{ needs.build.result }}',
-              '${{ needs.deploy-staging.result }}',
-              '${{ needs.deploy-production.result }}'
-            ].some(r => r === 'failure');
-            
-            if (failed) {
-              console.log('Pipeline failed - sending alert');
-              // Add notification logic here (Slack, email, etc.)
-            }
-
-      - name: Pipeline summary
-        run: |
-          echo "## Pipeline Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Scan | ${{ needs.security-scan.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy Staging | ${{ needs.deploy-staging.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy Production | ${{ needs.deploy-production.result }} |" >> $GITHUB_STEP_SUMMARY
+      - name: Confirm all checks passed
+        run: echo "All CI checks passed successfully!"

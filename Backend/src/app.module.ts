@@ -1,4 +1,4 @@
-import { Module, Logger } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 // logging and error handling
+// import { Logger } from '@nestjs/common';  // TODO: module not yet created
 // import { LoggingModule } from './logging/logging.module';         // TODO: module not yet created
 // import { StructuredLogger } from './logging/structured-logger.service'; // TODO: module not yet created
 

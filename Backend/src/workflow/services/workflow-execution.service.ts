@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { Workflow } from '../entities/workflow.entity';
 import { WorkflowStep } from '../entities/workflow-step.entity';
 import { WorkflowDefinition, StepDefinition, WorkflowContext } from '../types';

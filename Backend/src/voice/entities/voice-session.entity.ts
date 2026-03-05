@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { ConversationState } from '../types/conversation-state.enum';
 import { FeatureContext } from '../types/feature-context.enum';
 
@@ -33,7 +33,7 @@ export class VoiceSessionFactory {
   ): VoiceSession {
     const now = new Date();
     return {
-      id: uuidv4(),
+      id: randomUUID(),
       userId,
       walletAddress,
       context,

@@ -74,7 +74,7 @@ describe('VoiceService', () => {
         id: 'job-123',
         type: JobType.STT,
         status: JobStatus.COMPLETED,
-        text: 'Test transcription',
+        transcribedText: 'Test transcription',
       };
 
       mockRepository.findOne.mockResolvedValue(mockJob);
